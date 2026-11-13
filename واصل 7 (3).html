@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1f3d">
+<link rel="manifest" href='data:application/manifest+json,{"name":"واصل 7","short_name":"واصل 7","display":"standalone","dir":"rtl","lang":"ar","start_url":".","background_color":"#0f1f3d","theme_color":"#0f1f3d"}'>
+<title>واصل 7</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0f1f3d;--navy2:#1b2f55;--blue:#0a2a6b;--bg:#f3f5f9;--ink:#101828;--mute:#667085;--line:#e4e7ec;--bad:#dc2626}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{font-family:Cairo,Tahoma,system-ui,sans-serif;background:var(--navy);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0}
+:focus-visible{outline:3px solid #6b8cff;outline-offset:2px}
+.wrap{max-width:520px;margin:0 auto;min-height:100vh}
+#login{background:#fff;padding:24px;display:flex;flex-direction:column;min-height:100vh}
+.logo{display:block;margin:4px auto 0;width:190px}
+h1{font-size:28px;font-weight:800;color:var(--blue);text-align:center;margin-top:12px}
+.sub{color:var(--mute);text-align:center;margin:4px 0 18px}
+label{display:block;font-weight:600;margin:12px 0 6px}
+.field{display:flex;align-items:center;gap:10px;background:#f3f4f6;border:2px solid transparent;border-radius:16px;padding:0 16px;height:54px}
+.field:focus-within{border-color:var(--blue);background:#fff}
+.field input,.field select{flex:1;border:0;background:transparent;height:100%;outline:0;min-width:0;text-align:right}
+.field input[dir=ltr]{text-align:left}
+.cc{font-weight:700;color:var(--mute);padding-inline-end:10px;border-inline-end:1px solid #d0d5dd}
+.eye,.link{background:none;font-weight:600;color:var(--blue);font-size:14px;padding:6px 0}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:6px}
+.btn{width:100%;height:54px;border-radius:16px;background:var(--navy);color:#fff;font-weight:800;font-size:17px;box-shadow:0 10px 20px -8px rgba(15,31,61,.5)}
+.btn:active{transform:scale(.98)}
+.seg{display:flex;gap:6px;background:#f3f4f6;border-radius:16px;padding:4px}
+.seg button{flex:1;height:42px;border-radius:12px;background:none;font-weight:700;color:var(--mute)}
+.seg button.on{background:var(--navy);color:#fff}
+.foot{margin-top:auto;text-align:center;color:var(--mute);padding-top:20px;font-size:14px}
+#app{padding:16px 16px 32px;color:#fff}
+.top{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid #ffffff2b}
+.brand b{font-size:25px;font-weight:800}
+.brand small{display:block;color:#cbd5e6;font-size:13px}
+.chip{font-size:12px;padding:4px 12px;border-radius:99px;background:#16a34a2e;color:#4ade80;font-weight:600}
+.chip.off{background:#dc26262e;color:#f87171}
+.out{background:#ffffff1a;color:#fff;border-radius:10px;padding:6px 12px;font-size:13px;margin-inline-start:8px}
+.hi{font-size:24px;font-weight:800;margin:18px 0 12px}
+.card{background:#fff;color:var(--ink);border-radius:22px;padding:16px;margin-top:12px}
+.card h2{font-size:17px;font-weight:800}
+.card>p{color:var(--mute);font-size:14px;margin:6px 0 12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stat{background:var(--navy2);border-radius:18px;padding:12px 14px;color:#fff}
+.stat span{color:#cbd5e6;font-size:13px}
+.stat b{display:block;font-size:28px;font-weight:800;margin-top:4px}
+.list{display:grid;gap:10px;margin-top:12px}
+.empty{text-align:center;color:var(--mute);padding:18px 0}
+.order{border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.order small{color:var(--mute);display:block;margin-top:2px}
+.st{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.s-search{background:#fef3c7;color:#92400e}.s-assigned,.s-way{background:#dbeafe;color:#1e40af}.s-done,.s-retok{background:#dcfce7;color:#166534}.s-cancel{background:#fee2e2;color:#991b1b}.s-returned{background:#ffedd5;color:#9a3412}
+.acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.mini{flex:1;min-width:90px;height:38px;border-radius:10px;background:#eef2f7;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink)}
+.mini.ok{background:var(--navy);color:#fff}.mini.danger{color:var(--bad)}.mini.map{background:#e0ecff;color:#1e40af}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-top:14px;padding-bottom:4px}
+.tabs button{white-space:nowrap;background:#ffffff1a;color:#fff;border-radius:99px;padding:8px 14px;font-weight:700;font-size:14px}
+.tabs button.on{background:#fff;color:var(--navy)}
+.sw{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.sw .hi{margin:0}
+.sw button{background:#ffffff1a;color:#fff;border-radius:99px;padding:8px 16px;font-weight:700}
+.sw button.on{background:#16a34a}
+.inl{display:flex;gap:8px;margin-top:8px}
+.inl input,.inl select{flex:1;min-width:0;height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:#fff}
+.reply{background:#f0f9ff;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
+.bg{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:5}
+.bg.on{display:flex}
+.sheet{background:#fff;width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));max-height:92%;overflow:auto;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.sheet h3{font-size:20px;font-weight:800}
+.sheet textarea{width:100%;background:#f3f4f6;border:2px solid transparent;border-radius:16px;padding:12px 16px;min-height:80px;resize:none;outline:0}
+.toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#101828;color:#fff;padding:12px 20px;border-radius:14px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:9;max-width:90%}
+.toast.on{opacity:1}
+.hide{display:none!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<main id="login">
+  <svg class="logo" viewBox="0 0 300 150" role="img" aria-label="واصل 7"><path fill="#0a2a6b" d="M10 10h62l22 52 30-52h44L100 90 72 90z"/><path fill="#0a2a6b" d="M150 10h140l-64 80h-46l40-52h-48z"/><path fill="#fff" d="M60 85C130 55 200 35 270 20 210 45 140 70 80 98z"/><text x="150" y="132" text-anchor="middle" font-family="Cairo,sans-serif" font-weight="800" font-size="24" letter-spacing="7" fill="#0a2a6b">WASEL 7</text></svg>
+  <h1>أهلاً بيك في واصل 7</h1>
+  <p class="sub">خدمة توصيل المحلات بكل سهولة.</p>
+  <form id="lf" novalidate>
+    <div class="seg" id="roles"><button type="button" class="on" data-r="shop">محل</button><button type="button" data-r="courier">مندوب</button><button type="button" data-r="admin">الإدارة</button></div>
+    <div id="phBox"><label for="ph">رقم الموبايل</label>
+    <div class="field"><span class="cc">+20</span><input id="ph" dir="ltr" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" autocomplete="tel"></div></div>
+    <label for="pw" id="pwl">كلمة المرور</label>
+    <div class="field"><input id="pw" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="eye" id="eye">إظهار</button></div>
+    <p class="err" id="err" role="alert"></p>
+    <button class="btn" style="margin-top:8px">تسجيل الدخول</button>
+  </form>
+  <p class="foot">حسابات المحلات والمناديب بتتعمل من الإدارة.<br>لسه معندكش حساب؟ <b>تواصل مع الإدارة.</b></p>
+</main>
+<main id="app" class="hide"></main>
+</div>
+<div class="bg" id="bg"><form class="sheet" id="sh" novalidate></form></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const C={};['users','orders','tickets','settings'].forEach(k=>C[k]=LS.get('w7_'+k,[]));
+let db=null,me=LS.get('w7_me',null),role='shop',tab='orders',avail=true;
+const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
+const RX=/^01[0125]\d{8}$/;
+const S=()=>C.settings.find(x=>x.id==='main')||{id:'main',fee:25,pay:15};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const live=o=>!['done','cancel','returned','retok'].includes(o.s);
+const today=o=>new Date(o.t).toDateString()===new Date().toDateString();
+const sum=(a,f)=>a.reduce((x,o)=>x+(+f(o)||0),0);
+const money=n=>(Math.round(n*100)/100).toLocaleString('ar-EG')+' ج.م';
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2400)}
+async function hash(p,w){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p+':'+w+':w7'));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function put(c,o){const i=C[c].findIndex(x=>x.id==o.id);i<0?C[c].unshift(o):C[c][i]=o;LS.set('w7_'+c,C[c]);render();if(db)db.collection(c).doc(String(o.id)).set(o).catch(()=>toast('تعذر المزامنة، حاول تاني'))}
+function del(c,id){C[c]=C[c].filter(x=>x.id!=id);LS.set('w7_'+c,C[c]);render();if(db)db.collection(c).doc(String(id)).delete().catch(()=>{})}
+// login
+let lr='shop';
+$('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
+$('#eye').onclick=()=>{const p=$('#pw'),h=p.type==='password';p.type=h?'text':'password';$('#eye').textContent=h?'إخفاء':'إظهار'};
+$('#lf').onsubmit=async e=>{e.preventDefault();const p=$('#ph').value.trim(),w=$('#pw').value,E=$('#err');
+  if(lr!=='admin'&&!RX.test(p))return E.textContent='اكتب رقم موبايل مصري صحيح من 11 رقم';
+  if(w.length<6)return E.textContent='كلمة المرور لازم تكون 6 أحرف على الأقل';
+  const id=lr==='admin'?'admin_0':lr+'_'+p,h=await hash(id,w),u=C.users.find(x=>x.id===id);
+  if(lr==='admin'&&!u){put('users',{id,role:'admin',name:'الإدارة',h,t:Date.now()});toast('تم إنشاء حساب الإدارة بكلمة المرور دي')}
+  else if(!u)return E.textContent='الحساب ده مش موجود. اطلب من الإدارة تعمله لك';
+  else if(u.h!==h)return E.textContent='كلمة المرور غلط';
+  const x=u||C.users.find(x=>x.id===id);E.textContent='';me={id,role:lr,name:x.name,phone:p};LS.set('w7_me',me);$('#pw').value='';start()};
+function start(){$('#login').classList.add('hide');$('#app').classList.remove('hide');tab='orders';render()}
+function logout(){me=null;LS.set('w7_me',null);$('#app').classList.add('hide');$('#login').classList.remove('hide')}
+// views
+const empty='<div class="empty">📦<br>لسه مفيش حاجة هنا</div>';
+const mapLink=a=>`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}">🗺️ خريطة</a>`;
+function card(o,acts){const t=new Date(o.t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="order"><div class="r1"><b>${esc(o.n)}</b><span class="st s-${o.s}">${ST[o.s]}</span></div><small>${esc(o.a)}</small><small>#${String(o.id).slice(-5)} • ${t}${o.v?` • تحصيل ${esc(o.v)} ج.م`:''}${o.shopName?` • ${esc(o.shopName)}`:''}${o.courierName?` • ${esc(o.courierName)}`:''}</small>${acts?`<div class="acts">${acts}</div>`:''}</div>`}
+const B=(a,i,t,c='')=>`<button class="mini ${c}" data-a="${a}" data-i="${i}">${t}</button>`;
+function tickets(list,adm){return list.length?list.map(k=>`<div class="order"><div class="r1"><b>${esc(k.name)} (${k.role==='shop'?'محل':'مندوب'})</b><span class="st ${k.open?'s-search':'s-done'}">${k.open?'مفتوحة':'تم الحل'}</span></div><small>${esc(k.text)}</small>${k.reply?`<div class="reply">رد الإدارة: ${esc(k.reply)}</div>`:''}${adm&&k.open?`<div class="inl"><input id="r${k.id}" placeholder="اكتب الرد"><button class="mini ok" style="flex:0 0 auto" data-a="reply" data-i="${k.id}">رد وإغلاق</button></div>`:''}</div>`).join(''):empty}
+function head(sub){return `<header class="top"><div class="brand"><b>WASEL 7</b><small>${sub}</small></div><div><span class="chip ${navigator.onLine?'':'off'}">${navigator.onLine?'متصل':'غير متصل'}</span><button class="out" data-a="logout">خروج</button></div></header>`}
+function render(){
+  if(!me)return;const A=$('#app'),O=C.orders;
+  if(me.role==='shop'){
+    const m=O.filter(o=>o.shop===me.id).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t);
+    A.innerHTML=head('لوحة تحكم المحل')+`<div class="hi">أهلاً بيك ${esc(me.name)} 👋</div>
+    <section class="card"><h2>طلب مندوب جديد 🏍️</h2><p>سجّل بيانات الطلب، وهنوصلك بمندوب متاح. أجرة التوصيل ${money(S().fee)}.</p><button class="btn" data-a="new">+ اطلب مندوب الآن</button></section>
+    <div class="stats"><div class="stat"><span>طلبات نشطة</span><b>${m.filter(live).length}</b></div><div class="stat"><span>طلبات مكتملة اليوم</span><b>${m.filter(o=>o.s==='done'&&today(o)).length}</b></div></div>
+    <section class="card"><h2>آخر الطلبات</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,o.s==='search'?B('cancel',o.id,'إلغاء الطلب','danger'):'')).join(''):empty}</div></section>
+    <section class="card"><h2>الدعم</h2><p>عندك مشكلة في طلب أو حساب؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
+  }else if(me.role==='courier'){
+    const m=O.filter(o=>o.courier===me.id).sort((a,b)=>b.t-a.t),op=O.filter(o=>o.s==='search').sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t),dn=m.filter(o=>o.s==='done'&&today(o));
+    const act=o=>mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
+    A.innerHTML=head('تطبيق المندوب')+`<div class="sw"><span class="hi">أهلاً يا ${esc(me.name)} 🏍️</span><button class="${avail?'on':''}" data-a="avail">${avail?'متاح':'غير متاح'}</button></div>
+    <div class="stats"><div class="stat"><span>توصيلات اليوم</span><b>${dn.length}</b></div><div class="stat"><span>أجرتك اليوم</span><b style="font-size:22px">${money(dn.length*S().pay)}</b></div></div>
+    <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,mapLink(o.a)+B('acc',o.id,'قبول الطلب','ok'))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
+    <section class="card"><h2>طلباتي</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,live(o)?act(o):'')).join(''):empty}</div></section>
+    <section class="card"><h2>الدعم</h2><p>مشكلة في طلب أو تحصيل؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
+  }else{
+    const us=C.users.filter(u=>u.role!=='admin'),cs=us.filter(u=>u.role==='courier'),done=O.filter(o=>o.s==='done'),rt=O.filter(o=>['returned','retok'].includes(o.s)),tk=C.tickets.slice().sort((a,b)=>b.t-a.t),openT=tk.filter(k=>k.open).length;
+    const T=[['orders','الطلبات'],['accounts','الحسابات'],['money','الحسابات المالية'],['returns','المرتجعات'],['support','الدعم'+(openT?` (${openT})`:'')]];
+    let body='';
+    if(tab==='orders')body=`<section class="card"><h2>كل الطلبات (${O.length})</h2><div class="list">${O.length?O.slice().sort((a,b)=>b.t-a.t).slice(0,50).map(o=>card(o,o.s==='search'?(cs.length?`<div class="inl" style="width:100%"><select id="c${o.id}">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><button class="mini ok" style="flex:0 0 auto" data-a="assign" data-i="${o.id}">تعيين</button></div>`:'')+B('cancel',o.id,'إلغاء','danger'):'')).join(''):empty}</div></section>`;
+    if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.id.split('_')[1])}</small><div class="acts">${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
+    if(tab==='money'){const s=S(),tc=sum(done,o=>o.v),pay=done.length*s.pay,rev=sum(done,o=>o.fee||s.fee)-pay;
+      body=`<div class="stats"><div class="stat"><span>توصيلات مكتملة</span><b>${done.length}</b></div><div class="stat"><span>إجمالي التحصيل</span><b style="font-size:20px">${money(tc)}</b></div><div class="stat"><span>أجور المناديب</span><b style="font-size:20px">${money(pay)}</b></div><div class="stat"><span>صافي الإدارة</span><b style="font-size:20px">${money(rev)}</b></div></div>
+      <section class="card"><h2>الأسعار</h2><div class="inl"><input id="fee" inputmode="decimal" value="${s.fee}" aria-label="أجرة التوصيل على المحل"><input id="pay" inputmode="decimal" value="${s.pay}" aria-label="أجر المندوب"></div><p style="margin-top:8px">الأول: أجرة التوصيل على المحل. التاني: أجر المندوب للتوصيلة.</p><button class="btn" data-a="prices">حفظ الأسعار</button></section>
+      <section class="card"><h2>حساب المناديب</h2><div class="list">${cs.length?cs.map(c=>{const d=done.filter(o=>o.courier===c.id),cod=sum(d,o=>o.v),py=d.length*s.pay;return `<div class="order"><div class="r1"><b>${esc(c.name)}</b><span class="st s-done">${d.length} توصيلة</span></div><small>تحصيل: ${money(cod)} • أجره: ${money(py)}</small><small><b>يسلّم للإدارة: ${money(cod-py)}</b></small></div>`}).join(''):empty}</div></section>
+      <section class="card"><h2>حساب المحلات</h2><div class="list">${us.filter(u=>u.role==='shop').map(u=>{const d=done.filter(o=>o.shop===u.id),cod=sum(d,o=>o.v),f=sum(d,o=>o.fee||s.fee);return `<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-done">${d.length} طلب</span></div><small>تحصيل: ${money(cod)} • أجرة التوصيل: ${money(f)}</small><small><b>صافي المحل: ${money(cod-f)}</b></small></div>`}).join('')||empty}</div></section>`}
+    if(tab==='returns')body=`<section class="card"><h2>المرتجعات (${rt.length})</h2><div class="list">${rt.length?rt.map(o=>card(o,o.s==='returned'?B('retok',o.id,'تأكيد المرتجع','ok')+B('retno',o.id,'رفض (تم التوصيل)'):'')).join(''):empty}</div></section>`;
+    if(tab==='support')body=`<section class="card"><h2>طلبات الدعم</h2><div class="list">${tickets(tk,true)}</div></section>`;
+    A.innerHTML=head('لوحة الإدارة')+`<div class="tabs">${T.map(t=>`<button class="${tab===t[0]?'on':''}" data-a="tab" data-i="${t[0]}">${t[1]}</button>`).join('')}</div>`+body;
+  }
+}
+// sheets
+function sheet(f,h){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on')}
+const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id="${id}" name="${id}" placeholder="${ph}" ${x}></div>`;
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=b.dataset.i,o=C.orders.find(x=>x.id==i);
+  if(a==='logout')logout();
+  if(a==='close')$('#bg').classList.remove('on');
+  if(a==='tab'){tab=i;render()}
+  if(a==='avail'){avail=!avail;render()}
+  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>')}
+  if(a==='ticket')sheet('ticket','<h3>طلب دعم</h3><label for="tx">اكتب مشكلتك</label><textarea id="tx" name="tx" placeholder="مثال: المندوب اتأخر على طلب رقم..."></textarea>');
+  if(a==='newuser')sheet('user','<h3>حساب جديد</h3><label for="r">النوع</label><div class="field"><select id="r" name="r"><option value="shop">محل</option><option value="courier">مندوب</option></select></div>'+F('un','الاسم','اسم المحل أو المندوب')+F('up','رقم الموبايل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('uw','كلمة المرور','6 أحرف على الأقل','type="text" dir="ltr"'));
+  if(a==='cancel'&&confirm('تأكيد إلغاء الطلب؟'))put('orders',{...o,s:'cancel'});
+  if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب')}
+  if(a==='go')put('orders',{...o,s:'way'});
+  if(a==='done')put('orders',{...o,s:'done'});
+  if(a==='ret'&&confirm('تسجيل الطلب كمرتجع؟'))put('orders',{...o,s:'returned'});
+  if(a==='retok')put('orders',{...o,s:'retok'});
+  if(a==='retno')put('orders',{...o,s:'done'});
+  if(a==='assign'){const c=C.users.find(u=>u.id===$('#c'+i).value);put('orders',{...o,s:'assigned',courier:c.id,courierName:c.name})}
+  if(a==='deluser'&&confirm('حذف الحساب؟'))del('users',i);
+  if(a==='prices'){const f=+$('#fee').value,p=+$('#pay').value;if(!(f>=0&&p>=0))return toast('اكتب أرقام صحيحة');put('settings',{id:'main',fee:f,pay:p});toast('تم حفظ الأسعار')}
+  if(a==='reply'){const r=$('#r'+i).value.trim();if(!r)return toast('اكتب الرد الأول');put('tickets',{...C.tickets.find(k=>k.id==i),reply:r,open:false})}
+});
+$('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>(e.target.elements[n]?.value||'').trim(),er=m=>($('#oerr').textContent=m,0);
+  if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');
+    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
+  if(f==='ticket'){if(v('tx').length<5)return er('اكتب تفاصيل المشكلة');put('tickets',{id:Date.now(),uid:me.id,role:me.role,name:me.name,text:v('tx'),reply:'',open:true,t:Date.now()});toast('وصلت الإدارة، هنرد عليك')}
+  if(f==='user'){if(v('un').length<2)return er('اكتب الاسم');if(!RX.test(v('up')))return er('رقم الموبايل غير صحيح');if(v('uw').length<6)return er('كلمة المرور 6 أحرف على الأقل');
+    const id=v('r')+'_'+v('up');if(C.users.some(u=>u.id===id))return er('الرقم ده عنده حساب بالفعل');put('users',{id,role:v('r'),name:v('un'),h:await hash(id,v('uw')),t:Date.now()});toast('تم إنشاء الحساب')}
+  $('#bg').classList.remove('on')};
+$('#bg').onclick=e=>{if(e.target.id==='bg')$('#bg').classList.remove('on')};
+addEventListener('online',render);addEventListener('offline',render);
+(async()=>{try{db=await claude.use('db');if(db)['users','orders','tickets','settings'].forEach(c=>db.collection(c).onSnapshot(sn=>{C[c]=sn.docs.map(d=>d.data());LS.set('w7_'+c,C[c]);render()},()=>{}))}catch(e){}})();
+if(me)start();
+</script>
+</body>
+</html>
