@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
           mkdir -p proj/app/src/main/assets proj/app/src/main/java/com/wasel7/app proj/app/src/main/res/values proj/app/src/main/res/drawable proj/app/src/main/res/mipmap-anydpi-v26
-          cp index.html proj/app/src/main/assets/index.html
+          cp "$(ls *.html | head -n1)" proj/app/src/main/assets/index.html
           cd proj
           cat > settings.gradle <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
