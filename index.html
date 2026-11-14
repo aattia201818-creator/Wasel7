@@ -89,6 +89,8 @@ label{display:block;font-weight:600;margin:12px 0 6px}
   <p class="sub">خدمة توصيل المحلات بكل سهولة.</p>
   <form id="lf" novalidate>
     <div class="seg" id="roles"><button type="button" class="on" data-r="shop">محل</button><button type="button" data-r="courier">مندوب</button><button type="button" data-r="admin">الإدارة</button></div>
+    <div id="emBox" class="hide"><label for="em">إيميل الإدارة</label>
+    <div class="field"><input id="em" type="email" dir="ltr" placeholder="admin@example.com" autocomplete="email"></div></div>
     <div id="phBox"><label for="ph">رقم الموبايل</label>
     <div class="field"><span class="cc">+20</span><input id="ph" dir="ltr" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" autocomplete="tel"></div></div>
     <label for="pw" id="pwl">كلمة المرور</label>
@@ -104,12 +106,16 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+// ===== ضع هنا إعدادات مشروعك من Firebase Console > Project settings > Your apps =====
+const firebaseConfig={apiKey:"AIzaSyD68Q423Lp5iiPYTnJWRnPRCp5n2AUGfj0",authDomain:"waswl7.firebaseapp.com",projectId:"waswl7",storageBucket:"waswl7.firebasestorage.app",messagingSenderId:"867221448276",appId:"1:867221448276:web:5c374f973cb91d03572fc1"};
+const READY=!/YOUR_/.test(firebaseConfig.apiKey);
+const DOMAIN='@wasel7.app';
 const $=s=>document.querySelector(s);
-const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-const C={};['users','orders','tickets','settings'].forEach(k=>C[k]=LS.get('w7_'+k,[]));
-let db=null,me=LS.get('w7_me',null),role='shop',tab='orders',avail=true;
+const C={users:[],orders:[],tickets:[],settings:[]};
+let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false;
 const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
 const RX=/^01[0125]\d{8}$/;
 const S=()=>C.settings.find(x=>x.id==='main')||{id:'main',fee:25,pay:15};
@@ -119,25 +125,43 @@ const today=o=>new Date(o.t).toDateString()===new Date().toDateString();
 const sum=(a,f)=>a.reduce((x,o)=>x+(+f(o)||0),0);
 const money=n=>(Math.round(n*100)/100).toLocaleString('ar-EG')+' ج.م';
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2400)}
-async function hash(p,w){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p+':'+w+':w7'));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function put(c,o){const i=C[c].findIndex(x=>x.id==o.id);i<0?C[c].unshift(o):C[c][i]=o;LS.set('w7_'+c,C[c]);render();if(db)db.collection(c).doc(String(o.id)).set(o).catch(()=>toast('تعذر المزامنة، حاول تاني'))}
-function del(c,id){C[c]=C[c].filter(x=>x.id!=id);LS.set('w7_'+c,C[c]);render();if(db)db.collection(c).doc(String(id)).delete().catch(()=>{})}
+const werr=e=>toast(e&&e.code==='permission-denied'?'مش مسموحلك بالعملية دي':'تعذر الحفظ، تأكد من الاتصال وحاول تاني');
+function put(c,o){db.collection(c).doc(String(o.id)).set(o).catch(werr)}
+function del(c,id){db.collection(c).doc(String(id)).delete().catch(werr)}
+function listen(col,q,slot){unsubs.push(q.onSnapshot(sn=>{parts[col+slot]=sn.docs.map(d=>d.data());const m=new Map();Object.keys(parts).filter(k=>k.startsWith(col)).forEach(k=>parts[k].forEach(x=>m.set(String(x.id),x)));C[col]=[...m.values()];render()},e=>console.warn(col,e.code)))}
+function attach(){
+  const u=me.id,c=n=>db.collection(n);
+  listen('settings',c('settings'),0);
+  listen('tickets',me.role==='admin'?c('tickets'):c('tickets').where('uid','==',u),0);
+  if(me.role==='admin'){listen('orders',c('orders'),0);listen('users',c('users'),0)}
+  else if(me.role==='shop')listen('orders',c('orders').where('shop','==',u),0);
+  else{listen('orders',c('orders').where('s','==','search'),0);listen('orders',c('orders').where('courier','==',u),1)}
+}
+function detach(){unsubs.forEach(f=>f());unsubs=[];parts={};Object.keys(C).forEach(k=>C[k]=[])}
 // login
 let lr='shop';
-$('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
+$('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#emBox').classList.toggle('hide',r!=='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
 $('#eye').onclick=()=>{const p=$('#pw'),h=p.type==='password';p.type=h?'text':'password';$('#eye').textContent=h?'إخفاء':'إظهار'};
-$('#lf').onsubmit=async e=>{e.preventDefault();const p=$('#ph').value.trim(),w=$('#pw').value,E=$('#err');
-  if(lr!=='admin'&&!RX.test(p))return E.textContent='اكتب رقم موبايل مصري صحيح من 11 رقم';
+const AE={'auth/invalid-credential':'الرقم أو كلمة المرور غلط','auth/wrong-password':'كلمة المرور غلط','auth/user-not-found':'الحساب ده مش موجود. اطلب من الإدارة تعمله لك','auth/invalid-email':'الإيميل غير صحيح','auth/too-many-requests':'محاولات كتير. استنى شوية وجرّب تاني','auth/network-request-failed':'مفيش اتصال بالإنترنت','auth/user-disabled':'الحساب ده موقوف'};
+$('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=$('#ph').value.trim(),w=$('#pw').value,em=$('#em').value.trim().toLowerCase();
+  if(!READY)return E.textContent='إعدادات Firebase لسه متحطتش في الملف';
+  if(lr==='admin'){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return E.textContent='اكتب إيميل الإدارة صح'}
+  else if(!RX.test(p))return E.textContent='اكتب رقم موبايل مصري صحيح من 11 رقم';
   if(w.length<6)return E.textContent='كلمة المرور لازم تكون 6 أحرف على الأقل';
-  const id=lr==='admin'?'admin_0':lr+'_'+p,h=await hash(id,w);
-  if(db){try{const d=await db.collection('users').doc(id).get({source:'server'});if(d.exists&&!C.users.some(x=>x.id===id))C.users.push(d.data())}catch(e){}}
-  const u=C.users.find(x=>x.id===id);
-  if(lr==='admin'&&!u){put('users',{id,role:'admin',name:'الإدارة',h,t:Date.now()});toast('تم إنشاء حساب الإدارة بكلمة المرور دي')}
-  else if(!u)return E.textContent='الحساب ده مش موجود. اطلب من الإدارة تعمله لك';
-  else if(u.h!==h)return E.textContent='كلمة المرور غلط';
-  const x=u||C.users.find(x=>x.id===id);E.textContent='';me={id,role:lr,name:x.name,phone:p};LS.set('w7_me',me);$('#pw').value='';start()};
-function start(){$('#login').classList.add('hide');$('#app').classList.remove('hide');tab='orders';render()}
-function logout(){me=null;LS.set('w7_me',null);$('#app').classList.add('hide');$('#login').classList.remove('hide')}
+  E.textContent='';chk=lr;const b=e.submitter||$('#lf .btn');b.disabled=true;
+  try{await auth.signInWithEmailAndPassword(lr==='admin'?em:p+DOMAIN,w);$('#pw').value=''}
+  catch(x){chk=null;E.textContent=AE[x.code]||'تعذر تسجيل الدخول، حاول تاني'}
+  b.disabled=false};
+function showLogin(m){me=null;detach();$('#app').classList.add('hide');$('#login').classList.remove('hide');$('#bg').classList.remove('on');if(m)$('#err').textContent=m}
+function logout(){auth.signOut()}
+async function onUser(u){
+  if(!u)return showLogin();
+  let p=null;try{const d=await db.collection('users').doc(u.uid).get();if(d.exists)p=d.data()}catch(e){}
+  const want=chk;chk=null;
+  if(!p){await auth.signOut();return showLogin('الحساب ده مش مفعّل. كلّم الإدارة')}
+  if(want&&p.role!==want){await auth.signOut();return showLogin('اختار نوع الحساب الصح (محل / مندوب / الإدارة)')}
+  me={id:u.uid,role:p.role,name:p.name,phone:p.phone||''};
+  $('#err').textContent='';$('#login').classList.add('hide');$('#app').classList.remove('hide');tab='orders';detach();attach();render()}
 // views
 const empty='<div class="empty">📦<br>لسه مفيش حاجة هنا</div>';
 const mapLink=a=>`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}">🗺️ خريطة</a>`;
@@ -168,7 +192,7 @@ function render(){
     const T=[['orders','الطلبات'],['accounts','الحسابات'],['money','الحسابات المالية'],['returns','المرتجعات'],['support','الدعم'+(openT?` (${openT})`:'')]];
     let body='';
     if(tab==='orders')body=`<section class="card"><h2>كل الطلبات (${O.length})</h2><div class="list">${O.length?O.slice().sort((a,b)=>b.t-a.t).slice(0,50).map(o=>card(o,o.s==='search'?(cs.length?`<div class="inl" style="width:100%"><select id="c${o.id}">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><button class="mini ok" style="flex:0 0 auto" data-a="assign" data-i="${o.id}">تعيين</button></div>`:'')+B('cancel',o.id,'إلغاء','danger'):'')).join(''):empty}</div></section>`;
-    if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.id.split('_')[1])}</small><div class="acts">${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
+    if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.phone||'')}</small><div class="acts">${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
     if(tab==='money'){const s=S(),tc=sum(done,o=>o.v),pay=done.length*s.pay,rev=sum(done,o=>o.fee||s.fee)-pay;
       body=`<div class="stats"><div class="stat"><span>توصيلات مكتملة</span><b>${done.length}</b></div><div class="stat"><span>إجمالي التحصيل</span><b style="font-size:20px">${money(tc)}</b></div><div class="stat"><span>أجور المناديب</span><b style="font-size:20px">${money(pay)}</b></div><div class="stat"><span>صافي الإدارة</span><b style="font-size:20px">${money(rev)}</b></div></div>
       <section class="card"><h2>الأسعار</h2><div class="inl"><input id="fee" inputmode="decimal" value="${s.fee}" aria-label="أجرة التوصيل على المحل"><input id="pay" inputmode="decimal" value="${s.pay}" aria-label="أجر المندوب"></div><p style="margin-top:8px">الأول: أجرة التوصيل على المحل. التاني: أجر المندوب للتوصيلة.</p><button class="btn" data-a="prices">حفظ الأسعار</button></section>
@@ -181,4 +205,43 @@ function render(){
 }
 // sheets
 function sheet(f,h){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on')}
-const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id
+const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id="${id}" name="${id}" placeholder="${ph}" ${x}></div>`;
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=b.dataset.i,o=C.orders.find(x=>x.id==i);
+  if(a==='logout')logout();
+  if(a==='close')$('#bg').classList.remove('on');
+  if(a==='tab'){tab=i;render()}
+  if(a==='avail'){avail=!avail;render()}
+  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>')}
+  if(a==='ticket')sheet('ticket','<h3>طلب دعم</h3><label for="tx">اكتب مشكلتك</label><textarea id="tx" name="tx" placeholder="مثال: المندوب اتأخر على طلب رقم..."></textarea>');
+  if(a==='newuser')sheet('user','<h3>حساب جديد</h3><label for="r">النوع</label><div class="field"><select id="r" name="r"><option value="shop">محل</option><option value="courier">مندوب</option></select></div>'+F('un','الاسم','اسم المحل أو المندوب')+F('up','رقم الموبايل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('uw','كلمة المرور','6 أحرف على الأقل','type="text" dir="ltr"'));
+  if(a==='cancel'&&confirm('تأكيد إلغاء الطلب؟'))put('orders',{...o,s:'cancel'});
+  if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب')}
+  if(a==='go')put('orders',{...o,s:'way'});
+  if(a==='done')put('orders',{...o,s:'done'});
+  if(a==='ret'&&confirm('تسجيل الطلب كمرتجع؟'))put('orders',{...o,s:'returned'});
+  if(a==='retok')put('orders',{...o,s:'retok'});
+  if(a==='retno')put('orders',{...o,s:'done'});
+  if(a==='assign'){const c=C.users.find(u=>u.id===$('#c'+i).value);put('orders',{...o,s:'assigned',courier:c.id,courierName:c.name})}
+  if(a==='deluser'&&confirm('حذف الحساب؟'))del('users',i);
+  if(a==='prices'){const f=+$('#fee').value,p=+$('#pay').value;if(!(f>=0&&p>=0))return toast('اكتب أرقام صحيحة');put('settings',{id:'main',fee:f,pay:p});toast('تم حفظ الأسعار')}
+  if(a==='reply'){const r=$('#r'+i).value.trim();if(!r)return toast('اكتب الرد الأول');put('tickets',{...C.tickets.find(k=>k.id==i),reply:r,open:false})}
+});
+$('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>(e.target.elements[n]?.value||'').trim(),er=m=>($('#oerr').textContent=m,0);
+  if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');
+    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
+  if(f==='ticket'){if(v('tx').length<5)return er('اكتب تفاصيل المشكلة');put('tickets',{id:Date.now(),uid:me.id,role:me.role,name:me.name,text:v('tx'),reply:'',open:true,t:Date.now()});toast('وصلت الإدارة، هنرد عليك')}
+  if(f==='user'){if(v('un').length<2)return er('اكتب الاسم');if(!RX.test(v('up')))return er('رقم الموبايل غير صحيح');if(v('uw').length<6)return er('كلمة المرور 6 أحرف على الأقل');
+    if(busy)return;busy=true;
+    try{const cr=await sec.auth().createUserWithEmailAndPassword(v('up')+DOMAIN,v('uw'));const uid=cr.user.uid;await sec.auth().signOut();
+      await db.collection('users').doc(uid).set({id:uid,role:v('r'),name:v('un'),phone:v('up'),t:Date.now()});toast('تم إنشاء الحساب')}
+    catch(x){busy=false;return er(x.code==='auth/email-already-in-use'?'الرقم ده متسجّل قبل كده. لو اتحذف، امسحه من Firebase Authentication الأول':x.code==='permission-denied'?'مش مسموحلك':'تعذر إنشاء الحساب، حاول تاني')}
+    busy=false}
+  $('#bg').classList.remove('on')};
+$('#bg').onclick=e=>{if(e.target.id==='bg')$('#bg').classList.remove('on')};
+addEventListener('online',render);addEventListener('offline',render);
+if(READY){firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore();sec=firebase.initializeApp(firebaseConfig,'sec');auth.onAuthStateChanged(onUser)}
+else $('#err').textContent='إعدادات Firebase لسه متحطتش في الملف';
+</script>
+</body>
+</html>
