@@ -117,6 +117,7 @@ const $=s=>document.querySelector(s);
 const C={users:[],orders:[],tickets:[],settings:[]};
 let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false;
 const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
+const nd=t=>String(t||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/\s+/g,'');
 const RX=/^01[0125]\d{8}$/;
 const S=()=>C.settings.find(x=>x.id==='main')||{id:'main',fee:25,pay:15};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -143,7 +144,7 @@ let lr='shop';
 $('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#emBox').classList.toggle('hide',r!=='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
 $('#eye').onclick=()=>{const p=$('#pw'),h=p.type==='password';p.type=h?'text':'password';$('#eye').textContent=h?'إخفاء':'إظهار'};
 const AE={'auth/invalid-credential':'الرقم أو كلمة المرور غلط','auth/wrong-password':'كلمة المرور غلط','auth/user-not-found':'الحساب ده مش موجود. اطلب من الإدارة تعمله لك','auth/invalid-email':'الإيميل غير صحيح','auth/too-many-requests':'محاولات كتير. استنى شوية وجرّب تاني','auth/network-request-failed':'مفيش اتصال بالإنترنت','auth/user-disabled':'الحساب ده موقوف'};
-$('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=$('#ph').value.trim(),w=$('#pw').value,em=$('#em').value.trim().toLowerCase();
+$('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=nd($('#ph').value),w=$('#pw').value.trim(),em=$('#em').value.trim().toLowerCase();
   if(!READY)return E.textContent='إعدادات Firebase لسه متحطتش في الملف';
   if(lr==='admin'){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return E.textContent='اكتب إيميل الإدارة صح'}
   else if(!RX.test(p))return E.textContent='اكتب رقم موبايل مصري صحيح من 11 رقم';
@@ -227,7 +228,7 @@ document.addEventListener('click',e=>{
   if(a==='prices'){const f=+$('#fee').value,p=+$('#pay').value;if(!(f>=0&&p>=0))return toast('اكتب أرقام صحيحة');put('settings',{id:'main',fee:f,pay:p});toast('تم حفظ الأسعار')}
   if(a==='reply'){const r=$('#r'+i).value.trim();if(!r)return toast('اكتب الرد الأول');put('tickets',{...C.tickets.find(k=>k.id==i),reply:r,open:false})}
 });
-$('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>(e.target.elements[n]?.value||'').trim(),er=m=>($('#oerr').textContent=m,0);
+$('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>{const t=(e.target.elements[n]?.value||'').trim();return n==='up'?nd(t):t},er=m=>($('#oerr').textContent=m,0);
   if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');
     put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
   if(f==='ticket'){if(v('tx').length<5)return er('اكتب تفاصيل المشكلة');put('tickets',{id:Date.now(),uid:me.id,role:me.role,name:me.name,text:v('tx'),reply:'',open:true,t:Date.now()});toast('وصلت الإدارة، هنرد عليك')}
