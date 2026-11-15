@@ -143,7 +143,7 @@ function detach(){unsubs.forEach(f=>f());unsubs=[];parts={};Object.keys(C).forEa
 let lr='shop';
 $('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#emBox').classList.toggle('hide',r!=='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
 $('#eye').onclick=()=>{const p=$('#pw'),h=p.type==='password';p.type=h?'text':'password';$('#eye').textContent=h?'إخفاء':'إظهار'};
-const AE={'auth/invalid-credential':'الرقم أو كلمة المرور غلط','auth/wrong-password':'كلمة المرور غلط','auth/user-not-found':'الحساب ده مش موجود. اطلب من الإدارة تعمله لك','auth/invalid-email':'الإيميل غير صحيح','auth/too-many-requests':'محاولات كتير. استنى شوية وجرّب تاني','auth/network-request-failed':'مفيش اتصال بالإنترنت','auth/user-disabled':'الحساب ده موقوف'};
+const AE={'auth/invalid-credential':'الرقم أو كلمة المرور غلط','auth/wrong-password':'كلمة المرور غلط','auth/user-not-found':'الحساب ده مش موجود. اطلب من الإدارة تعمله لك','auth/invalid-email':'الإيميل غير صحيح','auth/too-many-requests':'محاولات كتير. استنى شوية وجرّب تاني','auth/network-request-failed':'مفيش اتصال بالإنترنت','auth/user-disabled':'الحساب ده موقوف','auth/operation-not-allowed':'تسجيل الدخول بالإيميل غير مفعّل في Firebase','auth/unauthorized-domain':'الدومين ده غير مضاف في Firebase (Authorized domains)','auth/operation-not-supported-in-this-environment':'البيئة دي مش بتدعم تسجيل الدخول. افتح الرابط من Chrome','auth/web-storage-unsupported':'المتصفح ده مانع التخزين. فعّل الكوكيز أو افتح من Chrome'};
 $('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=nd($('#ph').value),w=$('#pw').value.trim(),em=$('#em').value.trim().toLowerCase();
   if(!READY)return E.textContent='إعدادات Firebase لسه متحطتش في الملف';
   if(lr==='admin'){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return E.textContent='اكتب إيميل الإدارة صح'}
@@ -151,7 +151,7 @@ $('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=nd($('#ph').v
   if(w.length<6)return E.textContent='كلمة المرور لازم تكون 6 أحرف على الأقل';
   E.textContent='';chk=lr;const b=e.submitter||$('#lf .btn');b.disabled=true;
   try{await auth.signInWithEmailAndPassword(lr==='admin'?em:p+DOMAIN,w);$('#pw').value=''}
-  catch(x){chk=null;E.textContent=AE[x.code]||'تعذر تسجيل الدخول، حاول تاني'}
+  catch(x){chk=null;E.textContent=AE[x.code]||('تعذر تسجيل الدخول ('+(x.code||x.message||'?')+')')}
   b.disabled=false};
 function showLogin(m){me=null;detach();$('#app').classList.add('hide');$('#login').classList.remove('hide');$('#bg').classList.remove('on');if(m)$('#err').textContent=m}
 function logout(){auth.signOut()}
@@ -236,7 +236,7 @@ $('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>{
     if(busy)return;busy=true;
     try{const cr=await sec.auth().createUserWithEmailAndPassword(v('up')+DOMAIN,v('uw'));const uid=cr.user.uid;await sec.auth().signOut();
       await db.collection('users').doc(uid).set({id:uid,role:v('r'),name:v('un'),phone:v('up'),t:Date.now()});toast('تم إنشاء الحساب')}
-    catch(x){busy=false;return er(x.code==='auth/email-already-in-use'?'الرقم ده متسجّل قبل كده. لو اتحذف، امسحه من Firebase Authentication الأول':x.code==='permission-denied'?'مش مسموحلك':'تعذر إنشاء الحساب، حاول تاني')}
+    catch(x){busy=false;return er(x.code==='auth/email-already-in-use'?'الرقم ده متسجّل قبل كده. لو اتحذف، امسحه من Firebase Authentication الأول':x.code==='permission-denied'?'مش مسموحلك (قواعد Firestore)':x.code==='auth/weak-password'||x.code==='auth/password-does-not-meet-requirements'?'كلمة المرور ضعيفة، اكتب 6 أحرف أو أكتر':x.code==='auth/admin-restricted-operation'||x.code==='auth/operation-not-allowed'?'إنشاء الحسابات متقفّل في Firebase. فعّل Enable create (sign-up) من Authentication ثم Settings':'تعذر إنشاء الحساب ('+(x.code||x.message||'?')+')')}
     busy=false}
   $('#bg').classList.remove('on')};
 $('#bg').onclick=e=>{if(e.target.id==='bg')$('#bg').classList.remove('on')};
