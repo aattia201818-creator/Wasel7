@@ -80,6 +80,9 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 .toast.on{opacity:1}
 .hide{display:none!important}
 .pm{height:240px;border-radius:16px;margin-top:8px;position:relative;z-index:0;isolation:isolate}.leaflet-container{font-family:inherit}
+#nav{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}
+#nav .nb{padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top,0px));display:flex;gap:10px;align-items:center;justify-content:space-between;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);position:relative;z-index:2}
+#nmap{flex:1;position:relative;z-index:0}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -105,6 +108,7 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 <main id="app" class="hide"></main>
 </div>
 <div class="bg" id="bg"><form class="sheet" id="sh" novalidate></form></div>
+<div id="nav" class="hide"><div class="nb"><div><b id="nt">الطريق للمحل</b><div id="ni" style="font-size:13px;color:var(--mute)"></div></div><button type="button" class="mini" data-a="navx" style="flex:none;min-width:80px">إغلاق</button></div><div id="nmap"></div></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -118,7 +122,7 @@ const READY=!/YOUR_/.test(firebaseConfig.apiKey);
 const DOMAIN='@wasel7.app';
 const $=s=>document.querySelector(s);
 const C={users:[],orders:[],tickets:[],settings:[]};
-let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false,lastS={},myPos=null,watchId=null,lastPush=0,pick=null,pmap=null,pmark=null,locFor=null;
+let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false,lastS={},myPos=null,watchId=null,lastPush=0,pick=null,pmap=null,pmark=null,locFor=null,navOn=null,nmap=null,nme=null,nline=null,navFit=false,navAt=0,navPos=null,navEta="";
 const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
 const nd=t=>String(t||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/\s+/g,'');
 const RX=/^01[0125]\d{8}$/;
@@ -188,10 +192,10 @@ function onChg(col,ch,silent){
   else{if(d.s==='search'&&!p)notify('طلب جديد 🛵',no);else if(d.s==='returned')notify('مرتجع جديد ↩️',no)}
 }
 function track(){if(watchId!=null||!navigator.geolocation)return;
-  watchId=navigator.geolocation.watchPosition(p=>{const f=!myPos;myPos={lat:p.coords.latitude,lng:p.coords.longitude};if(f)render();const n=Date.now();if(n-lastPush<15000)return;lastPush=n;
+  watchId=navigator.geolocation.watchPosition(p=>{const f=!myPos;myPos={lat:p.coords.latitude,lng:p.coords.longitude};if(f)render();if(navOn)navUpdate();const n=Date.now();if(n-lastPush<15000)return;lastPush=n;
     C.orders.filter(o=>o.courier===me.id&&['assigned','way'].includes(o.s)).forEach(o=>db.collection('orders').doc(String(o.id)).update({cl:{lat:myPos.lat,lng:myPos.lng,t:n}}).catch(()=>{}))},
     ()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:20000})}
-function untrack(){if(watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null;myPos=null}
+function untrack(){navClose();if(watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null;myPos=null}
 const pickHtml=()=>'<div id="shopLoc"><label>موقع المحل على الخريطة</label><div id="pm" class="pm"></div><button type="button" class="mini map" data-a="gps" style="width:100%;margin-top:8px">📍 استخدم موقعي الحالي</button><p class="err" id="pmt" style="color:var(--mute)">اضغط على الخريطة أو اسحب الدبوس لمكان المحل بالظبط</p></div>';
 const vehHtml=()=>'<div id="vehBox" class="hide"><label for="vh">نوع المركبة</label><div class="field"><select id="vh" name="vh">'+Object.keys(VH).map(k=>`<option value="${k}">${VH[k]}</option>`).join('')+'</select></div></div>';
 function setPin(l){pick={lat:+l.lat.toFixed(6),lng:+l.lng.toFixed(6)};if(!pmark){pmark=L.marker([l.lat,l.lng],{draggable:true}).addTo(pmap);pmark.on('dragend',()=>{const q=pmark.getLatLng();pick={lat:+q.lat.toFixed(6),lng:+q.lng.toFixed(6)}})}else pmark.setLatLng([l.lat,l.lng]);$('#pmt').textContent='✓ تم تحديد الموقع'}
@@ -219,7 +223,7 @@ function render(){
     <section class="card"><h2>الدعم</h2><p>عندك مشكلة في طلب أو حساب؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
   }else if(me.role==='courier'){
     const m=O.filter(o=>o.courier===me.id).sort((a,b)=>b.t-a.t),op=O.filter(o=>o.s==='search'&&fits(o)).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t),dn=m.filter(o=>o.s==='done'&&today(o));
-    const act=o=>llink(o.sl,'🏪 المحل')+mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
+    const act=o=>(o.s==='assigned'&&o.sl?B('nav',o.id,'🧭 الطريق للمحل','map'):'')+llink(o.sl,'🏪 المحل')+mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
     A.innerHTML=head('تطبيق المندوب')+`<div class="sw"><span class="hi">أهلاً يا ${esc(me.name)} ${(VH[me.veh]||'🏍️').split(' ')[0]}</span><button class="${avail?'on':''}" data-a="avail">${avail?'متاح':'غير متاح'}</button></div>
     <div class="stats"><div class="stat"><span>توصيلات اليوم</span><b>${dn.length}</b></div><div class="stat"><span>أجرتك اليوم</span><b style="font-size:22px">${money(dn.length*S().pay)}</b></div></div>
     <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,llink(o.sl,'🏪 المحل')+mapLink(o.a)+B('acc',o.id,'قبول الطلب','ok'))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
@@ -241,6 +245,33 @@ function render(){
     A.innerHTML=head('لوحة الإدارة')+`<div class="tabs">${T.map(t=>`<button class="${tab===t[0]?'on':''}" data-a="tab" data-i="${t[0]}">${t[1]}</button>`).join('')}</div>`+body;
   }
 }
+// ===== خريطة الطريق للمحل =====
+const OSM='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+function navOpen(o){if(!o||!o.sl)return toast('موقع المحل مش متسجل');if(!window.L)return toast('الخريطة محتاجة إنترنت');
+  navOn=o;navFit=false;navAt=0;navPos=null;nme=null;nline=null;navEta='';
+  $('#nav').classList.remove('hide');$('#nt').textContent='الطريق لـ '+(o.shopName||'المحل');$('#ni').textContent='بنحدد موقعك…';
+  try{nmap&&nmap.remove()}catch(e){}
+  nmap=L.map('nmap',{zoomControl:false}).setView([o.sl.lat,o.sl.lng],15);
+  L.tileLayer(OSM,{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(nmap);
+  L.marker([o.sl.lat,o.sl.lng]).addTo(nmap).bindTooltip('🏪 '+(o.shopName||'المحل'),{permanent:true,direction:'top'});
+  setTimeout(()=>{nmap.invalidateSize();navUpdate()},120)}
+function navClose(){navOn=null;const n=$('#nav');if(n)n.classList.add('hide');try{nmap&&nmap.remove()}catch(e){}nmap=null}
+async function navUpdate(){if(!navOn||!nmap)return;const o=navOn;
+  if(!myPos){$('#ni').textContent='شغّل الـ GPS علشان نحدد موقعك…';return}
+  const d=km(myPos,o.sl)*1000;
+  if(!nme)nme=L.circleMarker([myPos.lat,myPos.lng],{radius:9,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1}).addTo(nmap);else nme.setLatLng([myPos.lat,myPos.lng]);
+  if(d<40){$('#ni').textContent='✅ وصلت المحل';if(nline){nmap.removeLayer(nline);nline=null}return}
+  $('#ni').textContent='باقي حوالي '+(d>=1000?(d/1000).toFixed(1)+' كم':Math.round(d)+' م')+(navEta?' • '+navEta:'');
+  const n=Date.now();if(navPos&&km(navPos,myPos)<0.04&&n-navAt<60000)return;
+  navAt=n;navPos={lat:myPos.lat,lng:myPos.lng};
+  let pts=[[myPos.lat,myPos.lng],[o.sl.lat,o.sl.lng]],dash='8 8';
+  try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
+    const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+myPos.lng+','+myPos.lat+';'+o.sl.lng+','+o.sl.lat+'?overview=full&geometries=geojson',{signal:c.signal});clearTimeout(t);
+    const j=await r.json();if(j.routes&&j.routes[0]){pts=j.routes[0].geometry.coordinates.map(q=>[q[1],q[0]]);dash=null;navEta='حوالي '+Math.max(1,Math.round(j.routes[0].duration/60))+' دقيقة'}}catch(e){navEta=''}
+  if(!navOn||!nmap)return;
+  if(nline)nmap.removeLayer(nline);
+  nline=L.polyline(pts,{color:'#2563eb',weight:6,opacity:.85,dashArray:dash}).addTo(nmap);
+  if(!navFit){nmap.fitBounds(nline.getBounds(),{padding:[50,50]});navFit=true}}
 // sheets
 function sheet(f,h,m){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on');if(m!==undefined)initPick(m)}
 const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id="${id}" name="${id}" placeholder="${ph}" ${x}></div>`;
@@ -258,7 +289,9 @@ document.addEventListener('click',e=>{
   if(a==='editloc'){const u=C.users.find(x=>x.id===i);locFor=i;sheet('loc','<h3>موقع '+esc(u.name)+'</h3>'+pickHtml(),u.loc||null)}
   if(a==='cycveh'){const u=C.users.find(x=>x.id===i),k=Object.keys(VH),n=k[(k.indexOf(u.veh)+1)%k.length];db.collection('users').doc(i).update({veh:n}).catch(werr)}
   if(a==='cancel'&&confirm('تأكيد إلغاء الطلب؟'))put('orders',{...o,s:'cancel'});
-  if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب')}
+  if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب');navOpen(o)}
+  if(a==='nav')navOpen(o);
+  if(a==='navx')navClose();
   if(a==='go')put('orders',{...o,s:'way'});
   if(a==='done')put('orders',{...o,s:'done'});
   if(a==='ret'&&confirm('تسجيل الطلب كمرتجع؟'))put('orders',{...o,s:'returned'});
