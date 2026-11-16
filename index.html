@@ -7,6 +7,7 @@
 <link rel="manifest" href='data:application/manifest+json,{"name":"واصل 7","short_name":"واصل 7","display":"standalone","dir":"rtl","lang":"ar","start_url":".","background_color":"#0f1f3d","theme_color":"#0f1f3d"}'>
 <title>واصل 7</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
 :root{--navy:#0f1f3d;--navy2:#1b2f55;--blue:#0a2a6b;--bg:#f3f5f9;--ink:#101828;--mute:#667085;--line:#e4e7ec;--bad:#dc2626}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
@@ -78,6 +79,7 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#101828;color:#fff;padding:12px 20px;border-radius:14px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:9;max-width:90%}
 .toast.on{opacity:1}
 .hide{display:none!important}
+.pm{height:240px;border-radius:16px;margin-top:8px;position:relative;z-index:0;isolation:isolate}.leaflet-container{font-family:inherit}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -105,6 +107,7 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 <div class="bg" id="bg"><form class="sheet" id="sh" novalidate></form></div>
 <div class="toast" id="toast" role="status"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -115,10 +118,19 @@ const READY=!/YOUR_/.test(firebaseConfig.apiKey);
 const DOMAIN='@wasel7.app';
 const $=s=>document.querySelector(s);
 const C={users:[],orders:[],tickets:[],settings:[]};
-let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false;
+let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false,lastS={},myPos=null,watchId=null,lastPush=0,pick=null,pmap=null,pmark=null,locFor=null;
 const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
 const nd=t=>String(t||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/\s+/g,'');
 const RX=/^01[0125]\d{8}$/;
+const SZ={s:'صغير',m:'متوسط',l:'كبير'};
+const SZD={s:'صغير — مستندات أو كيس خفيف',m:'متوسط — كذا كيس أو علبة كبيرة',l:'كبير — كراتين أو حاجات تقيلة'};
+const VH={moto:'🏍️ موتوسيكل',tok:'🛺 توك توك',bike:'🚲 عجلة'};
+const VC={bike:['s'],moto:['s','m'],tok:['s','m','l']};
+const fits=o=>(VC[me&&me.veh]||['s','m','l']).includes(o.z||'s');
+const km=(a,b)=>{const r=x=>x*Math.PI/180,q=Math.sin(r(b.lat-a.lat)/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(r(b.lng-a.lng)/2)**2;return 12742*Math.asin(Math.sqrt(q))};
+const llink=(l,t)=>l?`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}">${t}</a>`:'';
+const trk=o=>live(o)&&o.cl?llink(o.cl,'📍 مكان المندوب'):'';
+const dst=o=>me.role==='courier'&&myPos&&o.sl&&o.s==='search'?` • 📍 ${km(myPos,o.sl).toFixed(1)} كم`:'';
 const S=()=>C.settings.find(x=>x.id==='main')||{id:'main',fee:25,pay:15};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const live=o=>!['done','cancel','returned','retok'].includes(o.s);
@@ -129,7 +141,7 @@ function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clea
 const werr=e=>toast(e&&e.code==='permission-denied'?'مش مسموحلك بالعملية دي':'تعذر الحفظ، تأكد من الاتصال وحاول تاني');
 function put(c,o){db.collection(c).doc(String(o.id)).set(o).catch(werr)}
 function del(c,id){db.collection(c).doc(String(id)).delete().catch(werr)}
-function listen(col,q,slot){unsubs.push(q.onSnapshot(sn=>{parts[col+slot]=sn.docs.map(d=>d.data());const m=new Map();Object.keys(parts).filter(k=>k.startsWith(col)).forEach(k=>parts[k].forEach(x=>m.set(String(x.id),x)));C[col]=[...m.values()];render()},e=>console.warn(col,e.code)))}
+function listen(col,q,slot){let first=true;unsubs.push(q.onSnapshot(sn=>{sn.docChanges().forEach(ch=>onChg(col,ch,first));first=false;parts[col+slot]=sn.docs.map(d=>d.data());const m=new Map();Object.keys(parts).filter(k=>k.startsWith(col)).forEach(k=>parts[k].forEach(x=>m.set(String(x.id),x)));C[col]=[...m.values()];render()},e=>console.warn(col,e.code)))}
 function attach(){
   const u=me.id,c=n=>db.collection(n);
   listen('settings',c('settings'),0);
@@ -138,7 +150,7 @@ function attach(){
   else if(me.role==='shop')listen('orders',c('orders').where('shop','==',u),0);
   else{listen('orders',c('orders').where('s','==','search'),0);listen('orders',c('orders').where('courier','==',u),1)}
 }
-function detach(){unsubs.forEach(f=>f());unsubs=[];parts={};Object.keys(C).forEach(k=>C[k]=[])}
+function detach(){unsubs.forEach(f=>f());unsubs=[];parts={};lastS={};Object.keys(C).forEach(k=>C[k]=[])}
 // login
 let lr='shop';
 $('#roles').onclick=e=>{const r=e.target.dataset.r;if(!r)return;lr=r;document.querySelectorAll('#roles button').forEach(b=>b.classList.toggle('on',b===e.target));$('#phBox').classList.toggle('hide',r==='admin');$('#emBox').classList.toggle('hide',r!=='admin');$('#pwl').textContent=r==='admin'?'كلمة مرور الإدارة':'كلمة المرور'};
@@ -153,7 +165,7 @@ $('#lf').onsubmit=async e=>{e.preventDefault();const E=$('#err'),p=nd($('#ph').v
   try{await auth.signInWithEmailAndPassword(lr==='admin'?em:p+DOMAIN,w);$('#pw').value=''}
   catch(x){chk=null;E.textContent=AE[x.code]||('تعذر تسجيل الدخول ('+(x.code||x.message||'?')+')')}
   b.disabled=false};
-function showLogin(m){me=null;detach();$('#app').classList.add('hide');$('#login').classList.remove('hide');$('#bg').classList.remove('on');if(m)$('#err').textContent=m}
+function showLogin(m){untrack();me=null;detach();$('#app').classList.add('hide');$('#login').classList.remove('hide');$('#bg').classList.remove('on');if(m)$('#err').textContent=m}
 function logout(){auth.signOut()}
 async function onUser(u){
   if(!u)return showLogin();
@@ -161,39 +173,64 @@ async function onUser(u){
   const want=chk;chk=null;
   if(!p){await auth.signOut();return showLogin('الحساب ده مش مفعّل. كلّم الإدارة')}
   if(want&&p.role!==want){await auth.signOut();return showLogin('اختار نوع الحساب الصح (محل / مندوب / الإدارة)')}
-  me={id:u.uid,role:p.role,name:p.name,phone:p.phone||''};
-  $('#err').textContent='';$('#login').classList.add('hide');$('#app').classList.remove('hide');tab='orders';detach();attach();render()}
+  me={id:u.uid,role:p.role,name:p.name,phone:p.phone||'',loc:p.loc||null,veh:p.veh||''};
+  $('#err').textContent='';$('#login').classList.add('hide');$('#app').classList.remove('hide');tab='orders';detach();attach();render();if(me.role==='courier')track();if(!window.WaselApp&&window.Notification&&Notification.permission==='default')Notification.requestPermission()}
+// ===== إشعارات + لوكيشن + خريطة =====
+function notify(t,b){try{if(window.WaselApp&&WaselApp.show)WaselApp.show(t,b);else if(window.Notification&&Notification.permission==='granted'&&document.hidden)new Notification(t,{body:b})}catch(e){}toast(t)}
+function onChg(col,ch,silent){
+  const d=ch.doc.data();
+  if(col==='tickets'){if(silent)return;if(me.role==='admin'&&ch.type==='added')notify('طلب دعم جديد 🆘',d.name+': '+d.text);else if(me.role!=='admin'&&ch.type==='modified'&&d.reply)notify('رد من الإدارة 💬',d.reply);return}
+  if(col!=='orders'||ch.type==='removed')return;
+  const p=lastS[d.id];lastS[d.id]=d.s;if(silent||p===d.s)return;
+  const no=(d.shopName||'')+' • '+SZ[d.z||'s']+(d.v?' • تحصيل '+d.v+' ج.م':'');
+  if(me.role==='courier'){if(d.s==='search'&&avail&&fits(d))notify('طلب جديد 🛵',no)}
+  else if(me.role==='shop'){const m={assigned:'المندوب '+(d.courierName||'')+' قبل طلبك',way:'المندوب في الطريق للعميل',done:'تم توصيل الطلب ✅',returned:'الطلب اتسجل مرتجع',retok:'تم تأكيد المرتجع'}[d.s];if(m)notify('تحديث على طلبك',m+' (#'+String(d.id).slice(-5)+')')}
+  else{if(d.s==='search'&&!p)notify('طلب جديد 🛵',no);else if(d.s==='returned')notify('مرتجع جديد ↩️',no)}
+}
+function track(){if(watchId!=null||!navigator.geolocation)return;
+  watchId=navigator.geolocation.watchPosition(p=>{const f=!myPos;myPos={lat:p.coords.latitude,lng:p.coords.longitude};if(f)render();const n=Date.now();if(n-lastPush<15000)return;lastPush=n;
+    C.orders.filter(o=>o.courier===me.id&&['assigned','way'].includes(o.s)).forEach(o=>db.collection('orders').doc(String(o.id)).update({cl:{lat:myPos.lat,lng:myPos.lng,t:n}}).catch(()=>{}))},
+    ()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:20000})}
+function untrack(){if(watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null;myPos=null}
+const pickHtml=()=>'<div id="shopLoc"><label>موقع المحل على الخريطة</label><div id="pm" class="pm"></div><button type="button" class="mini map" data-a="gps" style="width:100%;margin-top:8px">📍 استخدم موقعي الحالي</button><p class="err" id="pmt" style="color:var(--mute)">اضغط على الخريطة أو اسحب الدبوس لمكان المحل بالظبط</p></div>';
+const vehHtml=()=>'<div id="vehBox" class="hide"><label for="vh">نوع المركبة</label><div class="field"><select id="vh" name="vh">'+Object.keys(VH).map(k=>`<option value="${k}">${VH[k]}</option>`).join('')+'</select></div></div>';
+function setPin(l){pick={lat:+l.lat.toFixed(6),lng:+l.lng.toFixed(6)};if(!pmark){pmark=L.marker([l.lat,l.lng],{draggable:true}).addTo(pmap);pmark.on('dragend',()=>{const q=pmark.getLatLng();pick={lat:+q.lat.toFixed(6),lng:+q.lng.toFixed(6)}})}else pmark.setLatLng([l.lat,l.lng]);$('#pmt').textContent='✓ تم تحديد الموقع'}
+function initPick(at){setTimeout(()=>{const el=$('#pm');if(!el)return;if(!window.L){$('#pmt').textContent='الخريطة محتاجة إنترنت';return}
+  try{pmap&&pmap.remove()}catch(e){}pmark=null;pick=null;const c=at||{lat:30.0444,lng:31.2357};
+  pmap=L.map(el).setView([c.lat,c.lng],at?17:11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(pmap);
+  if(at)setPin(at);pmap.on('click',e=>setPin({lat:e.latlng.lat,lng:e.latlng.lng}));pmap.invalidateSize()},80)}
+function gps(){if(!navigator.geolocation||!pmap)return toast('الموقع غير مدعوم');navigator.geolocation.getCurrentPosition(p=>{const l={lat:p.coords.latitude,lng:p.coords.longitude};setPin(l);pmap.setView([l.lat,l.lng],17)},()=>toast('مقدرناش نحدد موقعك. فعّل الـ GPS وصرّح للتطبيق'),{enableHighAccuracy:true,timeout:15000})}
 // views
 const empty='<div class="empty">📦<br>لسه مفيش حاجة هنا</div>';
 const mapLink=a=>`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}">🗺️ خريطة</a>`;
 function card(o,acts){const t=new Date(o.t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="order"><div class="r1"><b>${esc(o.n)}</b><span class="st s-${o.s}">${ST[o.s]}</span></div><small>${esc(o.a)}</small><small>#${String(o.id).slice(-5)} • ${t}${o.v?` • تحصيل ${esc(o.v)} ج.م`:''}${o.shopName?` • ${esc(o.shopName)}`:''}${o.courierName?` • ${esc(o.courierName)}`:''}</small>${acts?`<div class="acts">${acts}</div>`:''}</div>`}
+  return `<div class="order"><div class="r1"><b>${esc(o.n)}</b><span class="st s-${o.s}">${ST[o.s]}</span></div><small>${esc(o.a)}</small><small>#${String(o.id).slice(-5)} • ${t} • 📦 ${SZ[o.z||'s']}${o.v?` • تحصيل ${esc(o.v)} ج.م`:''}${dst(o)}${o.shopName?` • ${esc(o.shopName)}`:''}${o.courierName?` • ${esc(o.courierName)}`:''}</small>${acts?`<div class="acts">${acts}</div>`:''}</div>`}
 const B=(a,i,t,c='')=>`<button class="mini ${c}" data-a="${a}" data-i="${i}">${t}</button>`;
 function tickets(list,adm){return list.length?list.map(k=>`<div class="order"><div class="r1"><b>${esc(k.name)} (${k.role==='shop'?'محل':'مندوب'})</b><span class="st ${k.open?'s-search':'s-done'}">${k.open?'مفتوحة':'تم الحل'}</span></div><small>${esc(k.text)}</small>${k.reply?`<div class="reply">رد الإدارة: ${esc(k.reply)}</div>`:''}${adm&&k.open?`<div class="inl"><input id="r${k.id}" placeholder="اكتب الرد"><button class="mini ok" style="flex:0 0 auto" data-a="reply" data-i="${k.id}">رد وإغلاق</button></div>`:''}</div>`).join(''):empty}
 function head(sub){return `<header class="top"><div class="brand"><b>WASEL 7</b><small>${sub}</small></div><div><span class="chip ${navigator.onLine?'':'off'}">${navigator.onLine?'متصل':'غير متصل'}</span><button class="out" data-a="logout">خروج</button></div></header>`}
 function render(){
-  if(!me)return;const A=$('#app'),O=C.orders;
+  if(!me)return;const ae=document.activeElement;if(ae&&ae.closest&&ae.closest('#app')&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName))return;const A=$('#app'),O=C.orders;
   if(me.role==='shop'){
     const m=O.filter(o=>o.shop===me.id).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t);
     A.innerHTML=head('لوحة تحكم المحل')+`<div class="hi">أهلاً بيك ${esc(me.name)} 👋</div>
-    <section class="card"><h2>طلب مندوب جديد 🏍️</h2><p>سجّل بيانات الطلب، وهنوصلك بمندوب متاح. أجرة التوصيل ${money(S().fee)}.</p><button class="btn" data-a="new">+ اطلب مندوب الآن</button></section>
+    ${me.loc?'':'<section class="card"><h2>📍 حدد موقع المحل</h2><p>لازم تحدد مكان المحل على الخريطة مرة واحدة قبل ما تطلب مندوب.</p><button class="btn" data-a="myloc">تحديد موقع المحل</button></section>'}<section class="card"><h2>طلب مندوب جديد 🏍️</h2><p>سجّل بيانات الطلب، وهنوصلك بمندوب متاح. أجرة التوصيل ${money(S().fee)}.</p><button class="btn" data-a="new">+ اطلب مندوب الآن</button></section>
     <div class="stats"><div class="stat"><span>طلبات نشطة</span><b>${m.filter(live).length}</b></div><div class="stat"><span>طلبات مكتملة اليوم</span><b>${m.filter(o=>o.s==='done'&&today(o)).length}</b></div></div>
-    <section class="card"><h2>آخر الطلبات</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,o.s==='search'?B('cancel',o.id,'إلغاء الطلب','danger'):'')).join(''):empty}</div></section>
+    <section class="card"><h2>آخر الطلبات</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,(o.s==='search'?B('cancel',o.id,'إلغاء الطلب','danger'):'')+trk(o))).join(''):empty}</div></section>
     <section class="card"><h2>الدعم</h2><p>عندك مشكلة في طلب أو حساب؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
   }else if(me.role==='courier'){
-    const m=O.filter(o=>o.courier===me.id).sort((a,b)=>b.t-a.t),op=O.filter(o=>o.s==='search').sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t),dn=m.filter(o=>o.s==='done'&&today(o));
-    const act=o=>mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
-    A.innerHTML=head('تطبيق المندوب')+`<div class="sw"><span class="hi">أهلاً يا ${esc(me.name)} 🏍️</span><button class="${avail?'on':''}" data-a="avail">${avail?'متاح':'غير متاح'}</button></div>
+    const m=O.filter(o=>o.courier===me.id).sort((a,b)=>b.t-a.t),op=O.filter(o=>o.s==='search'&&fits(o)).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t),dn=m.filter(o=>o.s==='done'&&today(o));
+    const act=o=>llink(o.sl,'🏪 المحل')+mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
+    A.innerHTML=head('تطبيق المندوب')+`<div class="sw"><span class="hi">أهلاً يا ${esc(me.name)} ${(VH[me.veh]||'🏍️').split(' ')[0]}</span><button class="${avail?'on':''}" data-a="avail">${avail?'متاح':'غير متاح'}</button></div>
     <div class="stats"><div class="stat"><span>توصيلات اليوم</span><b>${dn.length}</b></div><div class="stat"><span>أجرتك اليوم</span><b style="font-size:22px">${money(dn.length*S().pay)}</b></div></div>
-    <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,mapLink(o.a)+B('acc',o.id,'قبول الطلب','ok'))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
+    <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,llink(o.sl,'🏪 المحل')+mapLink(o.a)+B('acc',o.id,'قبول الطلب','ok'))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
     <section class="card"><h2>طلباتي</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,live(o)?act(o):'')).join(''):empty}</div></section>
     <section class="card"><h2>الدعم</h2><p>مشكلة في طلب أو تحصيل؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
   }else{
     const us=C.users.filter(u=>u.role!=='admin'),cs=us.filter(u=>u.role==='courier'),done=O.filter(o=>o.s==='done'),rt=O.filter(o=>['returned','retok'].includes(o.s)),tk=C.tickets.slice().sort((a,b)=>b.t-a.t),openT=tk.filter(k=>k.open).length;
     const T=[['orders','الطلبات'],['accounts','الحسابات'],['money','الحسابات المالية'],['returns','المرتجعات'],['support','الدعم'+(openT?` (${openT})`:'')]];
     let body='';
-    if(tab==='orders')body=`<section class="card"><h2>كل الطلبات (${O.length})</h2><div class="list">${O.length?O.slice().sort((a,b)=>b.t-a.t).slice(0,50).map(o=>card(o,o.s==='search'?(cs.length?`<div class="inl" style="width:100%"><select id="c${o.id}">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><button class="mini ok" style="flex:0 0 auto" data-a="assign" data-i="${o.id}">تعيين</button></div>`:'')+B('cancel',o.id,'إلغاء','danger'):'')).join(''):empty}</div></section>`;
-    if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.phone||'')}</small><div class="acts">${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
+    if(tab==='orders')body=`<section class="card"><h2>كل الطلبات (${O.length})</h2><div class="list">${O.length?O.slice().sort((a,b)=>b.t-a.t).slice(0,50).map(o=>card(o,o.s==='search'?(cs.length?`<div class="inl" style="width:100%"><select id="c${o.id}">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><button class="mini ok" style="flex:0 0 auto" data-a="assign" data-i="${o.id}">تعيين</button></div>`:'')+B('cancel',o.id,'إلغاء','danger'):trk(o))).join(''):empty}</div></section>`;
+    if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.phone||'')}</small>${u.role==='courier'?`<small>${VH[u.veh]||'المركبة مش محددة'}</small>`:`<small>${u.loc?'📍 الموقع محدد':'⚠️ الموقع مش محدد'}</small>`}<div class="acts">${u.role==='courier'?B('cycveh',u.id,'🔄 المركبة'):B('editloc',u.id,'📍 الموقع')}${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
     if(tab==='money'){const s=S(),tc=sum(done,o=>o.v),pay=done.length*s.pay,rev=sum(done,o=>o.fee||s.fee)-pay;
       body=`<div class="stats"><div class="stat"><span>توصيلات مكتملة</span><b>${done.length}</b></div><div class="stat"><span>إجمالي التحصيل</span><b style="font-size:20px">${money(tc)}</b></div><div class="stat"><span>أجور المناديب</span><b style="font-size:20px">${money(pay)}</b></div><div class="stat"><span>صافي الإدارة</span><b style="font-size:20px">${money(rev)}</b></div></div>
       <section class="card"><h2>الأسعار</h2><div class="inl"><input id="fee" inputmode="decimal" value="${s.fee}" aria-label="أجرة التوصيل على المحل"><input id="pay" inputmode="decimal" value="${s.pay}" aria-label="أجر المندوب"></div><p style="margin-top:8px">الأول: أجرة التوصيل على المحل. التاني: أجر المندوب للتوصيلة.</p><button class="btn" data-a="prices">حفظ الأسعار</button></section>
@@ -205,7 +242,7 @@ function render(){
   }
 }
 // sheets
-function sheet(f,h){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on')}
+function sheet(f,h,m){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on');if(m!==undefined)initPick(m)}
 const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id="${id}" name="${id}" placeholder="${ph}" ${x}></div>`;
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=b.dataset.i,o=C.orders.find(x=>x.id==i);
@@ -213,9 +250,13 @@ document.addEventListener('click',e=>{
   if(a==='close')$('#bg').classList.remove('on');
   if(a==='tab'){tab=i;render()}
   if(a==='avail'){avail=!avail;render()}
-  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>')}
+  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');if(!me.loc)return toast('حدد موقع المحل الأول');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+'<label for="z">حجم الأوردر</label><div class="field"><select id="z" name="z">'+Object.keys(SZ).map(k=>`<option value="${k}">${SZD[k]}</option>`).join('')+'</select></div>'+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>')}
   if(a==='ticket')sheet('ticket','<h3>طلب دعم</h3><label for="tx">اكتب مشكلتك</label><textarea id="tx" name="tx" placeholder="مثال: المندوب اتأخر على طلب رقم..."></textarea>');
-  if(a==='newuser')sheet('user','<h3>حساب جديد</h3><label for="r">النوع</label><div class="field"><select id="r" name="r"><option value="shop">محل</option><option value="courier">مندوب</option></select></div>'+F('un','الاسم','اسم المحل أو المندوب')+F('up','رقم الموبايل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('uw','كلمة المرور','6 أحرف على الأقل','type="text" dir="ltr"'));
+  if(a==='newuser')sheet('user','<h3>حساب جديد</h3><label for="r">النوع</label><div class="field"><select id="r" name="r"><option value="shop">محل</option><option value="courier">مندوب</option></select></div>'+F('un','الاسم','اسم المحل أو المندوب')+F('up','رقم الموبايل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('uw','كلمة المرور','6 أحرف على الأقل','type="text" dir="ltr"')+vehHtml()+pickHtml(),null);
+  if(a==='gps')gps();
+  if(a==='myloc'){locFor=me.id;sheet('loc','<h3>موقع المحل</h3><p class="sub" style="margin:4px 0 0">قف في المحل واضغط "موقعي الحالي" أو حرّك الدبوس. بعد التأكيد مش هتقدر تغيّره غير من الإدارة.</p>'+pickHtml(),null)}
+  if(a==='editloc'){const u=C.users.find(x=>x.id===i);locFor=i;sheet('loc','<h3>موقع '+esc(u.name)+'</h3>'+pickHtml(),u.loc||null)}
+  if(a==='cycveh'){const u=C.users.find(x=>x.id===i),k=Object.keys(VH),n=k[(k.indexOf(u.veh)+1)%k.length];db.collection('users').doc(i).update({veh:n}).catch(werr)}
   if(a==='cancel'&&confirm('تأكيد إلغاء الطلب؟'))put('orders',{...o,s:'cancel'});
   if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب')}
   if(a==='go')put('orders',{...o,s:'way'});
@@ -230,16 +271,18 @@ document.addEventListener('click',e=>{
 });
 $('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>{const t=(e.target.elements[n]?.value||'').trim();return n==='up'?nd(t):t},er=m=>($('#oerr').textContent=m,0);
   if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');
-    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
+    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),z:v('z')||'s',sl:me.loc||null,s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
+  if(f==='loc'){if(!pick)return er('حدد الموقع على الخريطة');try{await db.collection('users').doc(locFor).update({loc:pick});if(locFor===me.id){me.loc=pick;render()}toast('تم حفظ الموقع')}catch(x){return er('تعذر الحفظ ('+(x.code||'?')+')')}}
   if(f==='ticket'){if(v('tx').length<5)return er('اكتب تفاصيل المشكلة');put('tickets',{id:Date.now(),uid:me.id,role:me.role,name:me.name,text:v('tx'),reply:'',open:true,t:Date.now()});toast('وصلت الإدارة، هنرد عليك')}
-  if(f==='user'){if(v('un').length<2)return er('اكتب الاسم');if(!RX.test(v('up')))return er('رقم الموبايل غير صحيح');if(v('uw').length<6)return er('كلمة المرور 6 أحرف على الأقل');
+  if(f==='user'){if(v('un').length<2)return er('اكتب الاسم');if(!RX.test(v('up')))return er('رقم الموبايل غير صحيح');if(v('uw').length<6)return er('كلمة المرور 6 أحرف على الأقل');if(v('r')==='shop'&&!pick)return er('حدد موقع المحل على الخريطة');
     if(busy)return;busy=true;
     try{const cr=await sec.auth().createUserWithEmailAndPassword(v('up')+DOMAIN,v('uw'));const uid=cr.user.uid;await sec.auth().signOut();
-      await db.collection('users').doc(uid).set({id:uid,role:v('r'),name:v('un'),phone:v('up'),t:Date.now()});toast('تم إنشاء الحساب')}
+      await db.collection('users').doc(uid).set({id:uid,role:v('r'),name:v('un'),phone:v('up'),...(v('r')==='shop'?{loc:pick}:{veh:v('vh')||'moto'}),t:Date.now()});toast('تم إنشاء الحساب')}
     catch(x){busy=false;return er(x.code==='auth/email-already-in-use'?'الرقم ده متسجّل قبل كده. لو اتحذف، امسحه من Firebase Authentication الأول':x.code==='permission-denied'?'مش مسموحلك (قواعد Firestore)':x.code==='auth/weak-password'||x.code==='auth/password-does-not-meet-requirements'?'كلمة المرور ضعيفة، اكتب 6 أحرف أو أكتر':x.code==='auth/admin-restricted-operation'||x.code==='auth/operation-not-allowed'?'إنشاء الحسابات متقفّل في Firebase. فعّل Enable create (sign-up) من Authentication ثم Settings':'تعذر إنشاء الحساب ('+(x.code||x.message||'?')+')')}
     busy=false}
   $('#bg').classList.remove('on')};
 $('#bg').onclick=e=>{if(e.target.id==='bg')$('#bg').classList.remove('on')};
+$('#sh').addEventListener('change',e=>{if(e.target.id!=='r')return;const s=e.target.value==='shop';$('#shopLoc').classList.toggle('hide',!s);$('#vehBox').classList.toggle('hide',s);if(s&&pmap)setTimeout(()=>pmap.invalidateSize(),60)});
 addEventListener('online',render);addEventListener('offline',render);
 if(READY){firebase.initializeApp(firebaseConfig);auth=firebase.auth();db=firebase.firestore();sec=firebase.initializeApp(firebaseConfig,'sec');auth.onAuthStateChanged(onUser)}
 else $('#err').textContent='إعدادات Firebase لسه متحطتش في الملف';
