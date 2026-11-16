@@ -83,6 +83,21 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 #nav{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}
 #nav .nb{padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top,0px));display:flex;gap:10px;align-items:center;justify-content:space-between;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);position:relative;z-index:2}
 #nmap{flex:1;position:relative;z-index:0}
+.order{border:1px solid var(--line);border-radius:18px;padding:14px;background:#fff}
+.oh{display:flex;align-items:center;gap:10px}
+.ico{width:40px;height:40px;border-radius:12px;background:#e0ecff;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.oht{flex:1;min-width:0}.oht b{display:block;font-size:16px;font-weight:800;line-height:1.3}
+.oht small{display:block;color:var(--mute);font-size:12px;margin:0}
+.ob{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;display:grid;gap:6px;font-size:14px}
+.oa{color:var(--mute);font-size:13px;line-height:1.5}
+.om{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.om>div{background:#f3f5f9;border-radius:12px;padding:8px 12px}.om span{font-size:12px;color:var(--mute);display:block}.om b{font-size:20px;font-weight:800}.om b.g{color:#15803d}.om i{font-size:13px;font-weight:600;font-style:normal}
+.oc{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.oc span{background:#f3f5f9;color:#475467;font-size:12px;padding:4px 10px;border-radius:99px}
+.order .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.order .acts>*{min-width:0}
+.order .acts .mini{height:42px;border-radius:10px}.order .acts .mini.ok{grid-column:1/-1;height:48px;font-size:16px;border-radius:12px}
+.order .acts>.inl{grid-column:1/-1}
+.stat{background:#fff;color:var(--ink)}.stat span{color:var(--mute)}.stat b{color:var(--navy)}
+.feebox{background:#eef6ff;color:#1e40af;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px;font-weight:600}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -122,7 +137,7 @@ const READY=!/YOUR_/.test(firebaseConfig.apiKey);
 const DOMAIN='@wasel7.app';
 const $=s=>document.querySelector(s);
 const C={users:[],orders:[],tickets:[],settings:[]};
-let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false,lastS={},myPos=null,watchId=null,lastPush=0,pick=null,pmap=null,pmark=null,locFor=null,navOn=null,nmap=null,nme=null,nline=null,navFit=false,navAt=0,navPos=null,navEta="";
+let db=null,auth=null,sec=null,me=null,tab='orders',avail=true,unsubs=[],parts={},chk=null,busy=false,lastS={},myPos=null,watchId=null,lastPush=0,pick=null,pmap=null,pmark=null,locFor=null,navOn=null,nmap=null,nme=null,nline=null,navFit=false,navAt=0,navPos=null,navEta="",pinCb=null,ordDk=null,feeTok=0,navTo=false;
 const ST={search:'بندوّر على مندوب',assigned:'تم تعيين مندوب',way:'في الطريق',done:'تم التوصيل',cancel:'ملغي',returned:'مرتجع بانتظار المراجعة',retok:'مرتجع مؤكد'};
 const nd=t=>String(t||'').replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/\s+/g,'');
 const RX=/^01[0125]\d{8}$/;
@@ -134,7 +149,10 @@ const fits=o=>(VC[me&&me.veh]||['s','m','l']).includes(o.z||'s');
 const km=(a,b)=>{const r=x=>x*Math.PI/180,q=Math.sin(r(b.lat-a.lat)/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(r(b.lng-a.lng)/2)**2;return 12742*Math.asin(Math.sqrt(q))};
 const llink=(l,t)=>l?`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}">${t}</a>`:'';
 const trk=o=>live(o)&&o.cl?llink(o.cl,'📍 مكان المندوب'):'';
-const dst=o=>me.role==='courier'&&myPos&&o.sl&&o.s==='search'?` • 📍 ${km(myPos,o.sl).toFixed(1)} كم`:'';
+const dst=o=>me.role==='courier'&&myPos&&o.sl&&o.s==='search'?`<span>📍 المحل يبعد ${km(myPos,o.sl).toFixed(1)} كم</span>`:'';
+const KM=()=>{const k=S().km;return k==null||isNaN(+k)?5:+k};
+const feeOf=dk=>{const ex=dk>1?KM()*Math.ceil(dk-1):0;return{ex,fee:S().fee+ex}};
+const custLink=o=>o.dl?llink(o.dl,'🗺️ خريطة العميل'):mapLink(o.a);
 const S=()=>C.settings.find(x=>x.id==='main')||{id:'main',fee:25,pay:15};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const live=o=>!['done','cancel','returned','retok'].includes(o.s);
@@ -196,19 +214,20 @@ function track(){if(watchId!=null||!navigator.geolocation)return;
     C.orders.filter(o=>o.courier===me.id&&['assigned','way'].includes(o.s)).forEach(o=>db.collection('orders').doc(String(o.id)).update({cl:{lat:myPos.lat,lng:myPos.lng,t:n}}).catch(()=>{}))},
     ()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:20000})}
 function untrack(){navClose();if(watchId!=null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null;myPos=null}
-const pickHtml=()=>'<div id="shopLoc"><label>موقع المحل على الخريطة</label><div id="pm" class="pm"></div><button type="button" class="mini map" data-a="gps" style="width:100%;margin-top:8px">📍 استخدم موقعي الحالي</button><p class="err" id="pmt" style="color:var(--mute)">اضغط على الخريطة أو اسحب الدبوس لمكان المحل بالظبط</p></div>';
+const pickHtml=(lb='موقع المحل على الخريطة',hint='اضغط على الخريطة أو اسحب الدبوس لمكان المحل بالظبط',g=true)=>'<div id="shopLoc"><label>'+lb+'</label><div id="pm" class="pm"></div>'+(g?'<button type="button" class="mini map" data-a="gps" style="width:100%;margin-top:8px">📍 استخدم موقعي الحالي</button>':'')+'<p class="err" id="pmt" style="color:var(--mute)">'+hint+'</p></div>';
 const vehHtml=()=>'<div id="vehBox" class="hide"><label for="vh">نوع المركبة</label><div class="field"><select id="vh" name="vh">'+Object.keys(VH).map(k=>`<option value="${k}">${VH[k]}</option>`).join('')+'</select></div></div>';
-function setPin(l){pick={lat:+l.lat.toFixed(6),lng:+l.lng.toFixed(6)};if(!pmark){pmark=L.marker([l.lat,l.lng],{draggable:true}).addTo(pmap);pmark.on('dragend',()=>{const q=pmark.getLatLng();pick={lat:+q.lat.toFixed(6),lng:+q.lng.toFixed(6)}})}else pmark.setLatLng([l.lat,l.lng]);$('#pmt').textContent='✓ تم تحديد الموقع'}
-function initPick(at){setTimeout(()=>{const el=$('#pm');if(!el)return;if(!window.L){$('#pmt').textContent='الخريطة محتاجة إنترنت';return}
-  try{pmap&&pmap.remove()}catch(e){}pmark=null;pick=null;const c=at||{lat:30.0444,lng:31.2357};
-  pmap=L.map(el).setView([c.lat,c.lng],at?17:11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(pmap);
+function setPin(l){pick={lat:+l.lat.toFixed(6),lng:+l.lng.toFixed(6)};if(!pmark){pmark=L.marker([l.lat,l.lng],{draggable:true}).addTo(pmap);pmark.on('dragend',()=>{const q=pmark.getLatLng();pick={lat:+q.lat.toFixed(6),lng:+q.lng.toFixed(6)};if(pinCb)pinCb()})}else pmark.setLatLng([l.lat,l.lng]);$('#pmt').textContent='✓ تم تحديد الموقع';if(pinCb)pinCb()}
+function initPick(at,ctr){setTimeout(()=>{const el=$('#pm');if(!el)return;if(!window.L){$('#pmt').textContent='الخريطة محتاجة إنترنت';return}
+  try{pmap&&pmap.remove()}catch(e){}pmark=null;pick=null;const c=at||ctr||{lat:30.0444,lng:31.2357};
+  pmap=L.map(el).setView([c.lat,c.lng],at?17:ctr?15:11);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(pmap);
   if(at)setPin(at);pmap.on('click',e=>setPin({lat:e.latlng.lat,lng:e.latlng.lng}));pmap.invalidateSize()},80)}
 function gps(){if(!navigator.geolocation||!pmap)return toast('الموقع غير مدعوم');navigator.geolocation.getCurrentPosition(p=>{const l={lat:p.coords.latitude,lng:p.coords.longitude};setPin(l);pmap.setView([l.lat,l.lng],17)},()=>toast('مقدرناش نحدد موقعك. فعّل الـ GPS وصرّح للتطبيق'),{enableHighAccuracy:true,timeout:15000})}
 // views
 const empty='<div class="empty">📦<br>لسه مفيش حاجة هنا</div>';
 const mapLink=a=>`<a class="mini map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a)}">🗺️ خريطة</a>`;
 function card(o,acts){const t=new Date(o.t).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="order"><div class="r1"><b>${esc(o.n)}</b><span class="st s-${o.s}">${ST[o.s]}</span></div><small>${esc(o.a)}</small><small>#${String(o.id).slice(-5)} • ${t} • 📦 ${SZ[o.z||'s']}${o.v?` • تحصيل ${esc(o.v)} ج.م`:''}${dst(o)}${o.shopName?` • ${esc(o.shopName)}`:''}${o.courierName?` • ${esc(o.courierName)}`:''}</small>${acts?`<div class="acts">${acts}</div>`:''}</div>`}
+  const pay=me.role==='courier'?['أجرتك',S().pay+(o.ex||0)]:['أجرة التوصيل',o.fee||S().fee];
+  return `<div class="order"><div class="oh"><div class="ico">🏪</div><div class="oht"><b>${esc(o.shopName||'')}</b><small>#${String(o.id).slice(-5)} • ${t}</small></div><span class="st s-${o.s}">${ST[o.s]}</span></div><div class="ob"><div>👤 <b>${esc(o.n)}</b></div><div class="oa">📍 ${esc(o.a)}</div></div><div class="om"><div><span>التحصيل من العميل</span><b>${esc(o.v||'0')} <i>ج.م</i></b></div><div><span>${pay[0]}</span><b class="g">${pay[1]} <i>ج.م</i></b></div></div><div class="oc"><span>📦 ${SZ[o.z||'s']}</span>${o.dk?`<span>📏 ${(+o.dk).toFixed(1)} كم</span>`:''}${dst(o)}${o.courierName?`<span>🏍️ ${esc(o.courierName)}</span>`:''}</div>${acts?`<div class="acts">${acts}</div>`:''}</div>`}
 const B=(a,i,t,c='')=>`<button class="mini ${c}" data-a="${a}" data-i="${i}">${t}</button>`;
 function tickets(list,adm){return list.length?list.map(k=>`<div class="order"><div class="r1"><b>${esc(k.name)} (${k.role==='shop'?'محل':'مندوب'})</b><span class="st ${k.open?'s-search':'s-done'}">${k.open?'مفتوحة':'تم الحل'}</span></div><small>${esc(k.text)}</small>${k.reply?`<div class="reply">رد الإدارة: ${esc(k.reply)}</div>`:''}${adm&&k.open?`<div class="inl"><input id="r${k.id}" placeholder="اكتب الرد"><button class="mini ok" style="flex:0 0 auto" data-a="reply" data-i="${k.id}">رد وإغلاق</button></div>`:''}</div>`).join(''):empty}
 function head(sub){return `<header class="top"><div class="brand"><b>WASEL 7</b><small>${sub}</small></div><div><span class="chip ${navigator.onLine?'':'off'}">${navigator.onLine?'متصل':'غير متصل'}</span><button class="out" data-a="logout">خروج</button></div></header>`}
@@ -217,16 +236,16 @@ function render(){
   if(me.role==='shop'){
     const m=O.filter(o=>o.shop===me.id).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t);
     A.innerHTML=head('لوحة تحكم المحل')+`<div class="hi">أهلاً بيك ${esc(me.name)} 👋</div>
-    ${me.loc?'':'<section class="card"><h2>📍 حدد موقع المحل</h2><p>لازم تحدد مكان المحل على الخريطة مرة واحدة قبل ما تطلب مندوب.</p><button class="btn" data-a="myloc">تحديد موقع المحل</button></section>'}<section class="card"><h2>طلب مندوب جديد 🏍️</h2><p>سجّل بيانات الطلب، وهنوصلك بمندوب متاح. أجرة التوصيل ${money(S().fee)}.</p><button class="btn" data-a="new">+ اطلب مندوب الآن</button></section>
-    <div class="stats"><div class="stat"><span>طلبات نشطة</span><b>${m.filter(live).length}</b></div><div class="stat"><span>طلبات مكتملة اليوم</span><b>${m.filter(o=>o.s==='done'&&today(o)).length}</b></div></div>
+    ${me.loc?'':'<section class="card"><h2>📍 حدد موقع المحل</h2><p>لازم تحدد مكان المحل على الخريطة مرة واحدة قبل ما تطلب مندوب.</p><button class="btn" data-a="myloc">تحديد موقع المحل</button></section>'}<section class="card"><h2>طلب مندوب جديد 🏍️</h2><p>سجّل بيانات الطلب، وهنوصلك بمندوب متاح. أجرة التوصيل ${money(S().fee)} لحد 1 كم، وبعدها +${money(KM())} عن كل كم زيادة.</p><button class="btn" data-a="new">+ اطلب مندوب الآن</button></section>
+    <div class="stats"><div class="stat"><span>⏳ طلبات نشطة</span><b>${m.filter(live).length}</b></div><div class="stat"><span>✅ مكتملة اليوم</span><b>${m.filter(o=>o.s==='done'&&today(o)).length}</b></div></div>
     <section class="card"><h2>آخر الطلبات</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,(o.s==='search'?B('cancel',o.id,'إلغاء الطلب','danger'):'')+trk(o))).join(''):empty}</div></section>
     <section class="card"><h2>الدعم</h2><p>عندك مشكلة في طلب أو حساب؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
   }else if(me.role==='courier'){
     const m=O.filter(o=>o.courier===me.id).sort((a,b)=>b.t-a.t),op=O.filter(o=>o.s==='search'&&fits(o)).sort((a,b)=>b.t-a.t),tk=C.tickets.filter(k=>k.uid===me.id).sort((a,b)=>b.t-a.t),dn=m.filter(o=>o.s==='done'&&today(o));
-    const act=o=>(o.s==='assigned'&&o.sl?B('nav',o.id,'🧭 الطريق للمحل','map'):'')+llink(o.sl,'🏪 المحل')+mapLink(o.a)+(o.s==='assigned'?B('go',o.id,'ابدأ التوصيل','ok'):o.s==='way'?B('done',o.id,'تم التسليم','ok')+B('ret',o.id,'مرتجع','danger'):'');
+    const act=o=>(o.s==='assigned'?(o.sl?B('nav',o.id,'🧭 الطريق للمحل','ok')+B('go',o.id,'ابدأ التوصيل'):B('go',o.id,'ابدأ التوصيل','ok')):o.s==='way'?B('done',o.id,'تم التسليم','ok')+(o.dl?B('navc',o.id,'🧭 الطريق للعميل','map'):'')+B('ret',o.id,'مرتجع','danger'):'')+llink(o.sl,'🏪 المحل')+custLink(o);
     A.innerHTML=head('تطبيق المندوب')+`<div class="sw"><span class="hi">أهلاً يا ${esc(me.name)} ${(VH[me.veh]||'🏍️').split(' ')[0]}</span><button class="${avail?'on':''}" data-a="avail">${avail?'متاح':'غير متاح'}</button></div>
-    <div class="stats"><div class="stat"><span>توصيلات اليوم</span><b>${dn.length}</b></div><div class="stat"><span>أجرتك اليوم</span><b style="font-size:22px">${money(dn.length*S().pay)}</b></div></div>
-    <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,llink(o.sl,'🏪 المحل')+mapLink(o.a)+B('acc',o.id,'قبول الطلب','ok'))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
+    <div class="stats"><div class="stat"><span>📦 توصيلات اليوم</span><b>${dn.length}</b></div><div class="stat"><span>💰 أجرتك اليوم</span><b style="font-size:22px;color:#15803d">${money(sum(dn,o=>S().pay+(o.ex||0)))}</b></div></div>
+    <section class="card"><h2>طلبات متاحة</h2><div class="list">${!avail?'<div class="empty">أنت غير متاح حاليًا</div>':op.length?op.map(o=>card(o,B('acc',o.id,'قبول الطلب','ok')+llink(o.sl,'🏪 المحل')+custLink(o))).join(''):'<div class="empty">مفيش طلبات متاحة دلوقتي</div>'}</div></section>
     <section class="card"><h2>طلباتي</h2><div class="list">${m.length?m.slice(0,25).map(o=>card(o,live(o)?act(o):'')).join(''):empty}</div></section>
     <section class="card"><h2>الدعم</h2><p>مشكلة في طلب أو تحصيل؟ ابعتها للإدارة.</p><button class="btn" data-a="ticket">+ طلب دعم</button><div class="list">${tickets(tk)}</div></section>`;
   }else{
@@ -235,9 +254,9 @@ function render(){
     let body='';
     if(tab==='orders')body=`<section class="card"><h2>كل الطلبات (${O.length})</h2><div class="list">${O.length?O.slice().sort((a,b)=>b.t-a.t).slice(0,50).map(o=>card(o,o.s==='search'?(cs.length?`<div class="inl" style="width:100%"><select id="c${o.id}">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><button class="mini ok" style="flex:0 0 auto" data-a="assign" data-i="${o.id}">تعيين</button></div>`:'')+B('cancel',o.id,'إلغاء','danger'):trk(o))).join(''):empty}</div></section>`;
     if(tab==='accounts')body=`<section class="card"><h2>الحسابات</h2><p>أنشئ حساب لكل محل ومندوب، وسلّمه الرقم وكلمة المرور.</p><button class="btn" data-a="newuser">+ حساب جديد</button><div class="list">${us.length?us.map(u=>`<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-assigned">${u.role==='shop'?'محل':'مندوب'}</span></div><small dir="ltr" style="text-align:right">${esc(u.phone||'')}</small>${u.role==='courier'?`<small>${VH[u.veh]||'المركبة مش محددة'}</small>`:`<small>${u.loc?'📍 الموقع محدد':'⚠️ الموقع مش محدد'}</small>`}<div class="acts">${u.role==='courier'?B('cycveh',u.id,'🔄 المركبة'):B('editloc',u.id,'📍 الموقع')}${B('deluser',u.id,'حذف الحساب','danger')}</div></div>`).join(''):empty}</div></section>`;
-    if(tab==='money'){const s=S(),tc=sum(done,o=>o.v),pay=done.length*s.pay,rev=sum(done,o=>o.fee||s.fee)-pay;
+    if(tab==='money'){const s=S(),tc=sum(done,o=>o.v),pay=sum(done,o=>s.pay+(o.ex||0)),rev=sum(done,o=>o.fee||s.fee)-pay;
       body=`<div class="stats"><div class="stat"><span>توصيلات مكتملة</span><b>${done.length}</b></div><div class="stat"><span>إجمالي التحصيل</span><b style="font-size:20px">${money(tc)}</b></div><div class="stat"><span>أجور المناديب</span><b style="font-size:20px">${money(pay)}</b></div><div class="stat"><span>صافي الإدارة</span><b style="font-size:20px">${money(rev)}</b></div></div>
-      <section class="card"><h2>الأسعار</h2><div class="inl"><input id="fee" inputmode="decimal" value="${s.fee}" aria-label="أجرة التوصيل على المحل"><input id="pay" inputmode="decimal" value="${s.pay}" aria-label="أجر المندوب"></div><p style="margin-top:8px">الأول: أجرة التوصيل على المحل. التاني: أجر المندوب للتوصيلة.</p><button class="btn" data-a="prices">حفظ الأسعار</button></section>
+      <section class="card"><h2>الأسعار</h2><div class="inl"><input id="fee" inputmode="decimal" value="${s.fee}" aria-label="أجرة التوصيل على المحل"><input id="pay" inputmode="decimal" value="${s.pay}" aria-label="أجر المندوب"></div><div class="inl"><input id="km" inputmode="decimal" value="${KM()}" aria-label="زيادة كل كم"></div><p style="margin-top:8px">الأول: أجرة التوصيل على المحل (لحد 1 كم). التاني: أجر المندوب. التالت: الزيادة عن كل كم بعد أول كم (بتتضاف على المحل وعلى المندوب).</p><button class="btn" data-a="prices">حفظ الأسعار</button></section>
       <section class="card"><h2>حساب المناديب</h2><div class="list">${cs.length?cs.map(c=>{const d=done.filter(o=>o.courier===c.id),cod=sum(d,o=>o.v),py=d.length*s.pay;return `<div class="order"><div class="r1"><b>${esc(c.name)}</b><span class="st s-done">${d.length} توصيلة</span></div><small>تحصيل: ${money(cod)} • أجره: ${money(py)}</small><small><b>يسلّم للإدارة: ${money(cod-py)}</b></small></div>`}).join(''):empty}</div></section>
       <section class="card"><h2>حساب المحلات</h2><div class="list">${us.filter(u=>u.role==='shop').map(u=>{const d=done.filter(o=>o.shop===u.id),cod=sum(d,o=>o.v),f=sum(d,o=>o.fee||s.fee);return `<div class="order"><div class="r1"><b>${esc(u.name)}</b><span class="st s-done">${d.length} طلب</span></div><small>تحصيل: ${money(cod)} • أجرة التوصيل: ${money(f)}</small><small><b>صافي المحل: ${money(cod-f)}</b></small></div>`}).join('')||empty}</div></section>`}
     if(tab==='returns')body=`<section class="card"><h2>المرتجعات (${rt.length})</h2><div class="list">${rt.length?rt.map(o=>card(o,o.s==='returned'?B('retok',o.id,'تأكيد المرتجع','ok')+B('retno',o.id,'رفض (تم التوصيل)'):'')).join(''):empty}</div></section>`;
@@ -245,35 +264,41 @@ function render(){
     A.innerHTML=head('لوحة الإدارة')+`<div class="tabs">${T.map(t=>`<button class="${tab===t[0]?'on':''}" data-a="tab" data-i="${t[0]}">${t[1]}</button>`).join('')}</div>`+body;
   }
 }
-// ===== خريطة الطريق للمحل =====
+// ===== حساب الأجرة =====
+async function calcFee(){const k=++feeTok,box=$('#feeBox');if(!box||!pick||!me.loc)return;ordDk=null;box.textContent='بنحسب المسافة…';
+  let d=km(me.loc,pick)*1.3;
+  try{const c=new AbortController(),to=setTimeout(()=>c.abort(),7000);const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+me.loc.lng+','+me.loc.lat+';'+pick.lng+','+pick.lat+'?overview=false',{signal:c.signal});clearTimeout(to);const j=await r.json();if(j.routes&&j.routes[0])d=j.routes[0].distance/1000}catch(e){}
+  if(k!==feeTok)return;ordDk=Math.round(d*100)/100;const f=feeOf(ordDk);
+  box.innerHTML='المسافة '+ordDk.toFixed(1)+' كم • أجرة التوصيل <b>'+f.fee+' ج.م</b>'+(f.ex?' (منها '+f.ex+' ج.م مسافة زيادة)':'')}
+// ===== خريطة الطريق =====
 const OSM='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-function navOpen(o){if(!o||!o.sl)return toast('موقع المحل مش متسجل');if(!window.L)return toast('الخريطة محتاجة إنترنت');
-  navOn=o;navFit=false;navAt=0;navPos=null;nme=null;nline=null;navEta='';
-  $('#nav').classList.remove('hide');$('#nt').textContent='الطريق لـ '+(o.shopName||'المحل');$('#ni').textContent='بنحدد موقعك…';
+function navOpen(o,c){const D=o&&(c?o.dl:o.sl);if(!D)return toast(c?'موقع العميل مش متسجل':'موقع المحل مش متسجل');if(!window.L)return toast('الخريطة محتاجة إنترنت');
+  navOn=o;navTo=!!c;navFit=false;navAt=0;navPos=null;nme=null;nline=null;navEta='';
+  $('#nav').classList.remove('hide');$('#nt').textContent=c?'الطريق للعميل: '+o.n:'الطريق لـ '+(o.shopName||'المحل');$('#ni').textContent='بنحدد موقعك…';
   try{nmap&&nmap.remove()}catch(e){}
-  nmap=L.map('nmap',{zoomControl:false}).setView([o.sl.lat,o.sl.lng],15);
+  nmap=L.map('nmap',{zoomControl:false}).setView([D.lat,D.lng],15);
   L.tileLayer(OSM,{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(nmap);
-  L.marker([o.sl.lat,o.sl.lng]).addTo(nmap).bindTooltip('🏪 '+(o.shopName||'المحل'),{permanent:true,direction:'top'});
+  L.marker([D.lat,D.lng]).addTo(nmap).bindTooltip(c?'👤 '+o.n:'🏪 '+(o.shopName||'المحل'),{permanent:true,direction:'top'});
   setTimeout(()=>{nmap.invalidateSize();navUpdate()},120)}
 function navClose(){navOn=null;const n=$('#nav');if(n)n.classList.add('hide');try{nmap&&nmap.remove()}catch(e){}nmap=null}
-async function navUpdate(){if(!navOn||!nmap)return;const o=navOn;
+async function navUpdate(){if(!navOn||!nmap)return;const o=navOn,D=navTo?o.dl:o.sl;
   if(!myPos){$('#ni').textContent='شغّل الـ GPS علشان نحدد موقعك…';return}
-  const d=km(myPos,o.sl)*1000;
+  const d=km(myPos,D)*1000;
   if(!nme)nme=L.circleMarker([myPos.lat,myPos.lng],{radius:9,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1}).addTo(nmap);else nme.setLatLng([myPos.lat,myPos.lng]);
-  if(d<40){$('#ni').textContent='✅ وصلت المحل';if(nline){nmap.removeLayer(nline);nline=null}return}
+  if(d<40){$('#ni').textContent=navTo?'✅ وصلت للعميل':'✅ وصلت المحل';if(nline){nmap.removeLayer(nline);nline=null}return}
   $('#ni').textContent='باقي حوالي '+(d>=1000?(d/1000).toFixed(1)+' كم':Math.round(d)+' م')+(navEta?' • '+navEta:'');
   const n=Date.now();if(navPos&&km(navPos,myPos)<0.04&&n-navAt<60000)return;
   navAt=n;navPos={lat:myPos.lat,lng:myPos.lng};
-  let pts=[[myPos.lat,myPos.lng],[o.sl.lat,o.sl.lng]],dash='8 8';
-  try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);
-    const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+myPos.lng+','+myPos.lat+';'+o.sl.lng+','+o.sl.lat+'?overview=full&geometries=geojson',{signal:c.signal});clearTimeout(t);
+  let pts=[[myPos.lat,myPos.lng],[D.lat,D.lng]],dash='8 8';
+  try{const c=new AbortController(),tm=setTimeout(()=>c.abort(),8000);
+    const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+myPos.lng+','+myPos.lat+';'+D.lng+','+D.lat+'?overview=full&geometries=geojson',{signal:c.signal});clearTimeout(tm);
     const j=await r.json();if(j.routes&&j.routes[0]){pts=j.routes[0].geometry.coordinates.map(q=>[q[1],q[0]]);dash=null;navEta='حوالي '+Math.max(1,Math.round(j.routes[0].duration/60))+' دقيقة'}}catch(e){navEta=''}
   if(!navOn||!nmap)return;
   if(nline)nmap.removeLayer(nline);
   nline=L.polyline(pts,{color:'#2563eb',weight:6,opacity:.85,dashArray:dash}).addTo(nmap);
   if(!navFit){nmap.fitBounds(nline.getBounds(),{padding:[50,50]});navFit=true}}
 // sheets
-function sheet(f,h,m){const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on');if(m!==undefined)initPick(m)}
+function sheet(f,h,m,c){pinCb=null;ordDk=null;feeTok++;const s=$('#sh');s.dataset.f=f;s.innerHTML=h+'<p class="err" id="oerr" role="alert"></p><button class="btn">تأكيد</button><button type="button" class="link" data-a="close" style="width:100%;text-align:center;margin-top:6px">إلغاء</button>';$('#bg').classList.add('on');if(m!==undefined)initPick(m,c)}
 const F=(id,l,ph,x='')=>`<label for="${id}">${l}</label><div class="field"><input id="${id}" name="${id}" placeholder="${ph}" ${x}></div>`;
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=b.dataset.i,o=C.orders.find(x=>x.id==i);
@@ -281,7 +306,7 @@ document.addEventListener('click',e=>{
   if(a==='close')$('#bg').classList.remove('on');
   if(a==='tab'){tab=i;render()}
   if(a==='avail'){avail=!avail;render()}
-  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');if(!me.loc)return toast('حدد موقع المحل الأول');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+'<label for="z">حجم الأوردر</label><div class="field"><select id="z" name="z">'+Object.keys(SZ).map(k=>`<option value="${k}">${SZD[k]}</option>`).join('')+'</select></div>'+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>')}
+  if(a==='new'){if(!navigator.onLine)return toast('مفيش اتصال بالإنترنت');if(!me.loc)return toast('حدد موقع المحل الأول');sheet('order','<h3>طلب مندوب جديد</h3>'+F('n','اسم العميل','مثال: أحمد محمد')+F('p','موبايل العميل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('a','عنوان التوصيل','الشارع، المنطقة، علامة مميزة')+'<label for="z">حجم الأوردر</label><div class="field"><select id="z" name="z">'+Object.keys(SZ).map(k=>`<option value="${k}">${SZD[k]}</option>`).join('')+'</select></div>'+F('v','المبلغ المطلوب تحصيله (ج.م)','0','dir="ltr" inputmode="decimal"')+'<label for="x">ملاحظات</label><textarea id="x" name="x" placeholder="اختياري"></textarea>'+pickHtml('موقع العميل على الخريطة','حرّك الدبوس لمكان تسليم الطلب بالظبط',false)+'<div id="feeBox" class="feebox">حدد موقع العميل علشان تتحسب الأجرة</div>',null,me.loc);pinCb=calcFee}
   if(a==='ticket')sheet('ticket','<h3>طلب دعم</h3><label for="tx">اكتب مشكلتك</label><textarea id="tx" name="tx" placeholder="مثال: المندوب اتأخر على طلب رقم..."></textarea>');
   if(a==='newuser')sheet('user','<h3>حساب جديد</h3><label for="r">النوع</label><div class="field"><select id="r" name="r"><option value="shop">محل</option><option value="courier">مندوب</option></select></div>'+F('un','الاسم','اسم المحل أو المندوب')+F('up','رقم الموبايل','01xxxxxxxxx','dir="ltr" inputmode="numeric" maxlength="11"')+F('uw','كلمة المرور','6 أحرف على الأقل','type="text" dir="ltr"')+vehHtml()+pickHtml(),null);
   if(a==='gps')gps();
@@ -292,19 +317,20 @@ document.addEventListener('click',e=>{
   if(a==='acc'){if(o.s!=='search')return toast('الطلب اتاخد من مندوب تاني');put('orders',{...o,s:'assigned',courier:me.id,courierName:me.name});toast('تم قبول الطلب');navOpen(o)}
   if(a==='nav')navOpen(o);
   if(a==='navx')navClose();
-  if(a==='go')put('orders',{...o,s:'way'});
+  if(a==='go'){put('orders',{...o,s:'way'});if(o.dl)navOpen(o,true)}
+  if(a==='navc')navOpen(o,true);
   if(a==='done')put('orders',{...o,s:'done'});
   if(a==='ret'&&confirm('تسجيل الطلب كمرتجع؟'))put('orders',{...o,s:'returned'});
   if(a==='retok')put('orders',{...o,s:'retok'});
   if(a==='retno')put('orders',{...o,s:'done'});
   if(a==='assign'){const c=C.users.find(u=>u.id===$('#c'+i).value);put('orders',{...o,s:'assigned',courier:c.id,courierName:c.name})}
   if(a==='deluser'&&confirm('حذف الحساب؟'))del('users',i);
-  if(a==='prices'){const f=+$('#fee').value,p=+$('#pay').value;if(!(f>=0&&p>=0))return toast('اكتب أرقام صحيحة');put('settings',{id:'main',fee:f,pay:p});toast('تم حفظ الأسعار')}
+  if(a==='prices'){const f=+$('#fee').value,p=+$('#pay').value,k=+$('#km').value;if(!(f>=0&&p>=0&&k>=0))return toast('اكتب أرقام صحيحة');put('settings',{id:'main',fee:f,pay:p,km:k});toast('تم حفظ الأسعار')}
   if(a==='reply'){const r=$('#r'+i).value.trim();if(!r)return toast('اكتب الرد الأول');put('tickets',{...C.tickets.find(k=>k.id==i),reply:r,open:false})}
 });
 $('#sh').onsubmit=async e=>{e.preventDefault();const f=e.target.dataset.f,v=n=>{const t=(e.target.elements[n]?.value||'').trim();return n==='up'?nd(t):t},er=m=>($('#oerr').textContent=m,0);
-  if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');
-    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),z:v('z')||'s',sl:me.loc||null,s:'search',t:Date.now(),fee:S().fee,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
+  if(f==='order'){if(v('n').length<2)return er('اكتب اسم العميل');if(!RX.test(v('p')))return er('رقم موبايل العميل غير صحيح');if(v('a').length<5)return er('اكتب عنوان التوصيل بالتفصيل');if(v('v')&&isNaN(+v('v')))return er('المبلغ لازم يكون رقم');if(!pick)return er('حدد موقع العميل على الخريطة');if(ordDk==null)return er('استنى لحظة لحد ما الأجرة تتحسب');
+    put('orders',{id:Date.now(),n:v('n'),p:v('p'),a:v('a'),v:v('v'),x:v('x'),z:v('z')||'s',sl:me.loc||null,s:'search',t:Date.now(),fee:feeOf(ordDk).fee,ex:feeOf(ordDk).ex,dk:ordDk,dl:pick,shop:me.id,shopName:me.name,courier:null});toast('تم تسجيل الطلب، بندوّر على مندوب')}
   if(f==='loc'){if(!pick)return er('حدد الموقع على الخريطة');try{await db.collection('users').doc(locFor).update({loc:pick});if(locFor===me.id){me.loc=pick;render()}toast('تم حفظ الموقع')}catch(x){return er('تعذر الحفظ ('+(x.code||'?')+')')}}
   if(f==='ticket'){if(v('tx').length<5)return er('اكتب تفاصيل المشكلة');put('tickets',{id:Date.now(),uid:me.id,role:me.role,name:me.name,text:v('tx'),reply:'',open:true,t:Date.now()});toast('وصلت الإدارة، هنرد عليك')}
   if(f==='user'){if(v('un').length<2)return er('اكتب الاسم');if(!RX.test(v('up')))return er('رقم الموبايل غير صحيح');if(v('uw').length<6)return er('كلمة المرور 6 أحرف على الأقل');if(v('r')==='shop'&&!pick)return er('حدد موقع المحل على الخريطة');
