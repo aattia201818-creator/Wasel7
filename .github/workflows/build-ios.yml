@@ -5,7 +5,7 @@ on:
     branches: [main, master]
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -76,7 +76,6 @@ jobs:
                   return true
               }
 
-              // اعرض الإشعار حتى لو التطبيق مفتوح (زي نسخة الأندرويد)
               func userNotificationCenter(_ center: UNUserNotificationCenter,
                                           willPresent notification: UNNotification,
                                           withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -105,7 +104,6 @@ jobs:
                   super.viewDidLoad()
                   view.backgroundColor = navy
 
-                  // نفس الجسر بتاع الأندرويد: window.WaselApp.show(title, body)
                   let js = "window.WaselApp={show:function(t,b){window.webkit.messageHandlers.waselApp.postMessage({title:String(t||''),body:String(b||'')});}};"
                   let ucc = WKUserContentController()
                   ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -137,7 +135,6 @@ jobs:
                   web.load(URLRequest(url: homeURL))
               }
 
-              // MARK: JS bridge -> إشعار محلي
               func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
                   guard message.name == "waselApp", let d = message.body as? [String: Any] else { return }
                   let c = UNMutableNotificationContent()
@@ -148,7 +145,6 @@ jobs:
                   UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "order-\(nid)", content: c, trigger: nil))
               }
 
-              // MARK: الروابط الخارجية تتفتح برّه التطبيق
               func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
                   guard let url = navigationAction.request.url else { decisionHandler(.allow); return }
@@ -172,7 +168,6 @@ jobs:
                   return nil
               }
 
-              // MARK: alert / confirm / prompt (الصفحة بتستخدم confirm)
               func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
                            initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
                   let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
@@ -198,7 +193,6 @@ jobs:
                   present(a, animated: true)
               }
 
-              // MARK: لو مفيش نت
               func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
                   showOffline()
               }
