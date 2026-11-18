@@ -1,0 +1,273 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate iOS project
+        run: |
+          set -e
+          mkdir -p ios/Wasel7 ios/Wasel7/Assets.xcassets/AppIcon.appiconset ios/Wasel7/Assets.xcassets/Navy.colorset
+          cd ios
+
+          cat > project.yml <<'EOF'
+          name: Wasel7
+          options:
+            bundleIdPrefix: com.wasel7
+            deploymentTarget:
+              iOS: "15.0"
+          targets:
+            Wasel7:
+              type: application
+              platform: iOS
+              sources: [Wasel7]
+              info:
+                path: Wasel7/Info.plist
+                properties:
+                  CFBundleDisplayName: "واصل 7"
+                  CFBundleName: "Wasel7"
+                  CFBundleDevelopmentRegion: ar
+                  UILaunchScreen:
+                    UIColorName: Navy
+                  UIRequiresFullScreen: false
+                  NSLocationWhenInUseUsageDescription: "نستخدم موقعك لتتبع الطلبات وعرض أقرب المندوبين."
+                  UISupportedInterfaceOrientations:
+                    - UIInterfaceOrientationPortrait
+                    - UIInterfaceOrientationLandscapeLeft
+                    - UIInterfaceOrientationLandscapeRight
+                  UISupportedInterfaceOrientations~ipad:
+                    - UIInterfaceOrientationPortrait
+                    - UIInterfaceOrientationPortraitUpsideDown
+                    - UIInterfaceOrientationLandscapeLeft
+                    - UIInterfaceOrientationLandscapeRight
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.wasel7.app
+                  MARKETING_VERSION: "1.1"
+                  CURRENT_PROJECT_VERSION: "2"
+                  SWIFT_VERSION: "5.0"
+                  TARGETED_DEVICE_FAMILY: "1,2"
+                  ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+                  GENERATE_INFOPLIST_FILE: NO
+          EOF
+
+          cat > Wasel7/AppDelegate.swift <<'EOF'
+          import UIKit
+          import UserNotifications
+
+          @main
+          class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+              var window: UIWindow?
+
+              func application(_ application: UIApplication,
+                               didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  UNUserNotificationCenter.current().delegate = self
+                  UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+                  let w = UIWindow(frame: UIScreen.main.bounds)
+                  w.rootViewController = WebViewController()
+                  w.makeKeyAndVisible()
+                  window = w
+                  return true
+              }
+
+              // اعرض الإشعار حتى لو التطبيق مفتوح (زي نسخة الأندرويد)
+              func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                          willPresent notification: UNNotification,
+                                          withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+                  completionHandler([.banner, .list, .sound])
+              }
+          }
+          EOF
+
+          cat > Wasel7/WebViewController.swift <<'EOF'
+          import UIKit
+          import WebKit
+          import CoreLocation
+          import UserNotifications
+
+          final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+              private let homeHost = "aattia201818-creator.github.io"
+              private let homeURL = URL(string: "https://aattia201818-creator.github.io/Wasel7/")!
+              private let navy = UIColor(red: 15/255, green: 31/255, blue: 61/255, alpha: 1)
+              private var web: WKWebView!
+              private let loc = CLLocationManager()
+              private var nid = 100
+
+              override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  view.backgroundColor = navy
+
+                  // نفس الجسر بتاع الأندرويد: window.WaselApp.show(title, body)
+                  let js = "window.WaselApp={show:function(t,b){window.webkit.messageHandlers.waselApp.postMessage({title:String(t||''),body:String(b||'')});}};"
+                  let ucc = WKUserContentController()
+                  ucc.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+                  ucc.add(self, name: "waselApp")
+
+                  let cfg = WKWebViewConfiguration()
+                  cfg.userContentController = ucc
+                  cfg.allowsInlineMediaPlayback = true
+                  cfg.websiteDataStore = .default()
+
+                  web = WKWebView(frame: .zero, configuration: cfg)
+                  web.translatesAutoresizingMaskIntoConstraints = false
+                  web.navigationDelegate = self
+                  web.uiDelegate = self
+                  web.allowsBackForwardNavigationGestures = true
+                  web.isOpaque = false
+                  web.backgroundColor = navy
+                  web.scrollView.backgroundColor = navy
+                  web.scrollView.contentInsetAdjustmentBehavior = .never
+                  view.addSubview(web)
+                  NSLayoutConstraint.activate([
+                      web.topAnchor.constraint(equalTo: view.topAnchor),
+                      web.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                      web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                      web.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+                  ])
+
+                  loc.requestWhenInUseAuthorization()
+                  web.load(URLRequest(url: homeURL))
+              }
+
+              // MARK: JS bridge -> إشعار محلي
+              func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+                  guard message.name == "waselApp", let d = message.body as? [String: Any] else { return }
+                  let c = UNMutableNotificationContent()
+                  c.title = d["title"] as? String ?? ""
+                  c.body = d["body"] as? String ?? ""
+                  c.sound = .default
+                  nid += 1
+                  UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "order-\(nid)", content: c, trigger: nil))
+              }
+
+              // MARK: الروابط الخارجية تتفتح برّه التطبيق
+              func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                           decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+                  guard let url = navigationAction.request.url else { decisionHandler(.allow); return }
+                  let isMain = navigationAction.targetFrame?.isMainFrame ?? true
+                  if !isMain { decisionHandler(.allow); return }
+                  let scheme = url.scheme ?? ""
+                  if ["about", "file", "blob", "data"].contains(scheme) || url.host == homeHost {
+                      decisionHandler(.allow)
+                  } else {
+                      UIApplication.shared.open(url)
+                      decisionHandler(.cancel)
+                  }
+              }
+
+              func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                           for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+                  if let url = navigationAction.request.url {
+                      if url.host == homeHost { webView.load(navigationAction.request) }
+                      else { UIApplication.shared.open(url) }
+                  }
+                  return nil
+              }
+
+              // MARK: alert / confirm / prompt (الصفحة بتستخدم confirm)
+              func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                           initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+                  let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  a.addAction(UIAlertAction(title: "حسناً", style: .default) { _ in completionHandler() })
+                  present(a, animated: true)
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                           initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+                  let a = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+                  a.addAction(UIAlertAction(title: "إلغاء", style: .cancel) { _ in completionHandler(false) })
+                  a.addAction(UIAlertAction(title: "موافق", style: .default) { _ in completionHandler(true) })
+                  present(a, animated: true)
+              }
+
+              func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String,
+                           defaultText: String?, initiatedByFrame frame: WKFrameInfo,
+                           completionHandler: @escaping (String?) -> Void) {
+                  let a = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+                  a.addTextField { $0.text = defaultText }
+                  a.addAction(UIAlertAction(title: "إلغاء", style: .cancel) { _ in completionHandler(nil) })
+                  a.addAction(UIAlertAction(title: "موافق", style: .default) { _ in completionHandler(a.textFields?.first?.text) })
+                  present(a, animated: true)
+              }
+
+              // MARK: لو مفيش نت
+              func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+                  showOffline()
+              }
+
+              private func showOffline() {
+                  let html = """
+                  <html dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+                  <body style="background:#0f1f3d;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center">
+                  <h2>لا يوجد اتصال بالإنترنت</h2>
+                  <p style="color:#cbd5e6">تأكد من الاتصال وحاول مرة أخرى</p>
+                  <button onclick="location.href='\(homeURL.absoluteString)'" style="background:#fff;color:#0f1f3d;border:0;border-radius:14px;padding:14px 28px;font-size:17px;font-weight:700">إعادة المحاولة</button>
+                  </body></html>
+                  """
+                  web.loadHTMLString(html, baseURL: nil)
+              }
+          }
+          EOF
+
+          cat > Wasel7/Assets.xcassets/Contents.json <<'EOF'
+          {"info":{"version":1,"author":"xcode"}}
+          EOF
+          cat > Wasel7/Assets.xcassets/Navy.colorset/Contents.json <<'EOF'
+          {"colors":[{"idiom":"universal","color":{"color-space":"srgb","components":{"red":"0.059","green":"0.122","blue":"0.239","alpha":"1.000"}}}],"info":{"version":1,"author":"xcode"}}
+          EOF
+          cat > Wasel7/Assets.xcassets/AppIcon.appiconset/Contents.json <<'EOF'
+          {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"version":1,"author":"xcode"}}
+          EOF
+
+          python3 - <<'PY'
+          import zlib, struct
+          N = 1024
+          s = N / 108.0
+          poly = [(30,34),(78,34),(78,43),(54,80),(43,80),(64,43),(30,43)]
+          poly = [(x*s, y*s) for x, y in poly]
+          def inside(px, py):
+              c = False
+              j = len(poly) - 1
+              for i in range(len(poly)):
+                  xi, yi = poly[i]; xj, yj = poly[j]
+                  if (yi > py) != (yj > py) and px < (xj - xi) * (py - yi) / (yj - yi) + xi:
+                      c = not c
+                  j = i
+              return c
+          bg = bytes([15, 31, 61]); fg = bytes([255, 255, 255])
+          raw = bytearray()
+          for y in range(N):
+              raw.append(0)
+              for x in range(N):
+                  raw += fg if inside(x + .5, y + .5) else bg
+          def chunk(t, d):
+              c = struct.pack(">I", len(d)) + t + d
+              return c + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+          png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", N, N, 8, 2, 0, 0, 0)) \
+              + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+          open("Wasel7/Assets.xcassets/AppIcon.appiconset/icon.png", "wb").write(png)
+          PY
+
+          xcodegen generate
+      - name: Build unsigned IPA
+        working-directory: ios
+        run: |
+          set -e
+          xcodebuild -project Wasel7.xcodeproj -scheme Wasel7 -configuration Release \
+            -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Wasel7.app Payload/
+          zip -qr Wasel7-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wasel7-IPA
+          path: ios/Wasel7-unsigned.ipa
